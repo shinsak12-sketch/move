@@ -26,7 +26,7 @@
       movePlanned: false, moveMonth: '', moveArea: '', moveBase: false,
       calc: { state: 'idle', list: [], at: null, road: '' }, filter: 'all',
       wish: '', reasonCode: '', reasonText: '', ranks: ['', '', ''],
-      sheet: null, slot: 0, q: '', confirm: false, busy: false, submittedAt: null, contact: '손사지원파트 신이삭 수석'
+      sheet: null, slot: 0, q: '', confirm: false, busy: false, submittedAt: null, contact: '손사지원파트 신이삭 수석', calcCount: 0, calcLimit: 2
     };
   }
 
@@ -70,6 +70,12 @@
   function monthLabel(v) { if (!v) return ''; var p = v.split('-'); return p[0] + '년 ' + Number(p[1]) + '월'; }
   function fmtTime(iso) { if (!iso) return ''; var d = new Date(iso), p = function (n) { return ('0' + n).slice(-2); }; return d.getFullYear() + '.' + p(d.getMonth() + 1) + '.' + p(d.getDate()) + ' ' + p(d.getHours()) + ':' + p(d.getMinutes()); }
   function houseKm() { return (cfg && cfg.houseKm) || 50; }
+  function calcLeft() { return (S.calcLimit || 2) - (S.calcCount || 0); }
+  function calcNote() {
+    var left = calcLeft();
+    if ((S.calcCount || 0) === 0) return '거리 산출은 재산출 포함 <b>2번</b>까지 가능함. 주소를 확인하고 산출해 주세요.';
+    return left > 0 ? '재산출은 <b>' + left + '번</b> 남음. 주소를 바꾸면 다시 산출해야 함.' : '산출 횟수를 모두 씀. 주소를 바꾸려면 ' + esc(S.contact) + '에게 연락해 주세요.';
+  }
   function orgByCode(c) { var l = S.calc.list || []; for (var i = 0; i < l.length; i++) if (l[i].code === c) return l[i]; return null; }
 
   /* ---------- 단계 이동 ---------- */
@@ -97,7 +103,7 @@
     if (s === 0) return doLogin();
     if (s === 1) return doConsent();
     if (s === 2) return doPassword();
-    if (s === 6 && !valid(6)) return doCalc();
+    if (s === 6 && !valid(6)) { if (calcLeft() <= 0) return toast('산출 횟수를 모두 씀. ' + S.contact + '에게 연락해 주세요.', true); return doCalc(); }
     if (s === 9) { S.confirm = true; return render(); }
     if (!valid(s)) return;
     go(nextOf(s));
@@ -134,7 +140,7 @@
   function enterSurvey() {
     S.busy = true; render();
     Promise.all([api('public'), api('me')]).then(function (x) {
-      cfg = x[0]; var me = x[1]; S.busy = false;
+      cfg = x[0]; var me = x[1]; S.busy = false; S.calcCount = me.calcCount || 0; S.calcLimit = me.calcLimit || 2;
       if (me.status === 'submitted') { S.submittedAt = me.submittedAt; clearAll(); S.step = 10; return render(); }
       if (me.calcAt && me.list && me.list.length && S.home && S.calc.road === S.home.road) { S.calc.list = me.list; S.calc.at = me.calcAt; S.calc.state = 'done'; }
       go(S.maxStep >= 3 ? Math.min(S.maxStep, 9) : 3);
@@ -144,11 +150,11 @@
     if (!S.home) return;
     S.busy = true; S.calc.state = 'run'; render();
     api('calc', { body: { road: S.home.road, jibun: S.home.jibun } }).then(function (r) {
-      S.busy = false; S.calc = { state: 'done', list: r.list, at: r.calcAt, road: S.home.road };
+      S.busy = false; S.calc = { state: 'done', list: r.list, at: r.calcAt, road: S.home.road }; S.calcCount = r.calcCount; S.calcLimit = r.calcLimit || 2;
       if (r.houseKm && cfg) cfg.houseKm = r.houseKm;
       if (r.failed) toast(r.failed + '곳은 경로를 찾지 못했음. 나머지 결과로 진행해도 됨.');
       save(); render();
-    }).catch(function (e) { S.calc.state = 'idle'; onErr(e); });
+    }).catch(function (e) { S.calc.state = 'idle'; if (e.data && e.data.calcCount != null) S.calcCount = e.data.calcCount; onErr(e); });
   }
   function doSubmit() {
     S.busy = true; S.confirm = false; render();
@@ -243,7 +249,8 @@
     var h = '<h1 class="t">지금 사는 곳을<br>알려주세요</h1><p class="sub">거리 계산과 사택 대상 판단에 쓰임.</p>';
     if (!S.home) return h + search('도로명, 건물명, 지번으로 검색', 'pcHome');
     return h + '<div class="picked"><span class="r">' + esc(S.home.road) + '</span><span class="j">[지번] ' + esc(S.home.jibun) + (S.home.zip ? ' · 우편번호 ' + esc(S.home.zip) : '') + '</span><button class="chg" type="button" data-act="pcHome">주소 다시 찾기</button></div>' +
-      '<div class="fld" style="margin-top:16px"><label class="lbl" for="dt">상세주소</label><input id="dt" class="inp" data-f="homeDetail" type="text" placeholder="동 · 호수 (예: 101동 1203호)" value="' + esc(S.homeDetail) + '"></div>';
+      '<div class="fld" style="margin-top:16px"><label class="lbl" for="dt">상세주소</label><input id="dt" class="inp" data-f="homeDetail" type="text" placeholder="동 · 호수 (예: 101동 1203호)" value="' + esc(S.homeDetail) + '"></div>' +
+      (S.calcCount ? '<div class="note"><span>' + calcNote() + '</span></div>' : '');
   };
   V[4] = function () {
     var h = '<h1 class="t">2025년 주소와<br>달라졌나요?</h1><p class="sub">작년 조사 이후 이사했다면 이전 주소를 알려주세요.</p>' + sw(S.prevChanged, '2025년 주소와 달라졌어요', 'togglePrev');
@@ -272,6 +279,7 @@
     if (!fresh6) {
       h += '<div class="card" style="display:flex;flex-direction:column;gap:6px"><span style="font-size:12.5px;color:#4B5563">출발지</span><b style="font-size:15.5px">' + esc(S.home ? S.home.road : '') + '</b><span style="font-size:13px;color:#4B5563">' + esc(S.homeDetail) + '</span></div>';
       if (S.movePlanned && S.moveBase) h += '<div class="note" style="margin-top:12px"><span>이사 예정지를 발령 기준지로 선택했음. 거리는 <b>현 거주지 기준</b>으로 계산하고, 이사 예정지(' + esc(S.moveArea) + ')는 발령 때 참고됨.</span></div>';
+      h += '<div class="note" style="margin-top:12px' + (calcLeft() <= 0 ? ';background:#FEF0EE;color:#912018' : '') + '"><span>' + calcNote() + '</span></div>';
       return h;
     }
     var L = c.list || [], K = houseKm(), ok = L.filter(function (x) { return x.km != null; });
@@ -283,7 +291,7 @@
       var no = L.indexOf(x) + 1;
       return '<div class="row"><span class="n">' + no + '</span><div><span class="nm">' + esc(x.name) + '</span>' + (x.km != null && x.km >= K ? '<span class="house">사택 대상</span>' : '') + '<div class="dp">' + esc(x.dept) + '</div></div>' +
         '<div class="km">' + (x.km == null ? '<span style="margin:0">산출 실패</span>' : '<b>' + x.km.toFixed(1) + '</b>km<span>약 ' + x.min + '분</span>') + '</div></div>';
-    }).join('') + '</div><div class="hint" style="margin-top:10px">산출 ' + fmtTime(c.at) + ' · ' + K + 'km 이상이면 사택 대상</div>';
+    }).join('') + '</div><div class="hint" style="margin-top:10px">산출 ' + fmtTime(c.at) + ' · ' + K + 'km 이상이면 사택 대상 · 재산출 ' + Math.max(0, calcLeft()) + '번 남음</div>';
     return h;
   };
   V[7] = function () {
@@ -332,7 +340,7 @@
     if (s === 9) return '최종 제출';
     return '다음';
   }
-  function ctaOn() { return !S.busy && (valid(S.step) || (S.step === 6 && !!S.home)); }
+  function ctaOn() { return !S.busy && (valid(S.step) || (S.step === 6 && !!S.home && calcLeft() > 0)); }
 
   function sheet() {
     if (!S.sheet) return '';
@@ -377,7 +385,7 @@
       case 'back': if (S.step <= 2) { S = fresh(); S.name = ''; clearAll(); return render(); } return go(prevOf(S.step));
       case 'agreeAll': var all = !(S.agree.collect && S.agree.overseas && S.agree.entrust); S.agree = { collect: all, overseas: all, entrust: all }; return render();
       case 'agree': S.agree[k] = !S.agree[k]; return render();
-      case 'pcHome': return openPostcode('home');
+      case 'pcHome': if (S.home && calcLeft() <= 0) return toast('거리 산출 횟수를 모두 써서 주소를 바꿀 수 없음. ' + S.contact + '에게 연락해 주세요.', true); return openPostcode('home');
       case 'pcPrev': return openPostcode('prev');
       case 'pcMove': return openPostcode('move');
       case 'togglePrev': S.prevChanged = !S.prevChanged; save(); return render();

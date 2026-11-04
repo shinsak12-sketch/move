@@ -8,7 +8,7 @@ export default handler(['GET'], async (req, res) => {
   await ensure();
   const sql = db();
   const rows = await sql`SELECT r.id, r.enc_identity, r.dept, r.pw_hash IS NOT NULL AS has_pw, r.locked, r.fail_count,
-                                r.last_login, s.status, s.calc_at, s.submitted_at
+                                r.last_login, s.status, s.calc_at, s.submitted_at, COALESCE(s.calc_count, 0) AS calc_count
                          FROM roster r LEFT JOIN responses s ON s.roster_id = r.id ORDER BY r.dept NULLS LAST, r.id`;
   const orgs = (await sql`SELECT COUNT(*)::int AS n FROM orgs`)[0].n;
   const st = await getSettings();

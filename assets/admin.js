@@ -107,13 +107,14 @@
       h += '<div class="seg">' + [['pending', '미제출'], ['done', '제출'], ['lock', '잠김'], ['all', '전체']].map(function (f) { return '<button type="button" class="' + (A.filter === f[0] ? 'on' : '') + '" data-act="filter" data-k="' + f[0] + '">' + f[1] + '</button>'; }).join('') + '</div>';
       var list = rows.filter(function (r) { var x = stOf(r); return A.filter === 'all' || (A.filter === 'pending' ? x !== 'done' : x === A.filter); })
         .filter(function (r) { return !A.q || ((A.names[r.id] || {}).name || '').indexOf(A.q) >= 0; });
-      h += '<div class="tbox"><table class="t"><thead><tr><th>성명</th><th>생년월일</th><th>부서</th><th>상태</th><th>최근 접속</th><th></th></tr></thead><tbody>' +
+      h += '<div class="tbox"><table class="t"><thead><tr><th>성명</th><th>생년월일</th><th>부서</th><th>상태</th><th>산출</th><th>최근 접속</th><th></th></tr></thead><tbody>' +
         list.slice(0, 500).map(function (r) {
           var p = A.names[r.id] || {}, x = stOf(r);
           var acts = (r.locked ? '<button class="btn sm" data-act="acc" data-k="unlock" data-id="' + r.id + '">잠금 해제</button> ' : '') +
             (r.has_pw ? '<button class="btn sm" data-act="acc" data-k="reset" data-id="' + r.id + '">비번 초기화</button> ' : '') +
-            (r.status === 'submitted' ? '<button class="btn sm" data-act="acc" data-k="reopen" data-id="' + r.id + '">재작성 허용</button>' : '');
-          return '<tr><td><b>' + esc(p.name) + '</b></td><td>' + esc(p.birth) + '</td><td>' + esc(r.dept) + '</td><td><span class="pill ' + ST[x][1] + '">' + ST[x][0] + '</span></td><td class="muted">' + fmt(r.submitted_at || r.last_login) + '</td><td style="text-align:right">' + acts + '</td></tr>';
+            (r.status === 'submitted' ? '<button class="btn sm" data-act="acc" data-k="reopen" data-id="' + r.id + '">재작성 허용</button>' : '') +
+            (r.status !== 'submitted' && r.calc_count >= 2 ? '<button class="btn sm" data-act="acc" data-k="calcReset" data-id="' + r.id + '">산출 횟수 초기화</button>' : '');
+          return '<tr><td><b>' + esc(p.name) + '</b></td><td>' + esc(p.birth) + '</td><td>' + esc(r.dept) + '</td><td><span class="pill ' + ST[x][1] + '">' + ST[x][0] + '</span></td><td class="muted">' + (r.calc_count ? r.calc_count + '/2' : '') + '</td><td class="muted">' + fmt(r.submitted_at || r.last_login) + '</td><td style="text-align:right">' + acts + '</td></tr>';
         }).join('') + '</tbody></table></div><div class="muted">' + list.length + '명' + (list.length > 500 ? ' (앞 500명만 표시 · 검색으로 좁히기)' : '') + '</div>';
     }
     return h + '</div></div>';
@@ -237,7 +238,7 @@
       return navigator.clipboard.writeText(['성명\t생년월일\t부서\t상태'].concat(list).join('\n')).then(function () { toast('미제출 ' + list.length + '명 복사함 (엑셀에 붙여넣기 가능)'); });
     }
     if (a === 'acc') {
-      var label = { reset: '비밀번호를 초기화', unlock: '잠금을 해제', reopen: '제출을 풀어 재작성을 허용' }[k];
+      var label = { reset: '비밀번호를 초기화', unlock: '잠금을 해제', reopen: '제출을 풀어 재작성을 허용', calcReset: '거리 산출 횟수를 0으로 초기화' }[k];
       if (!confirm(label + '할까요?')) return;
       return api('admin/account', { id: Number(t.getAttribute('data-id')), action: k }).then(function () { toast('처리했음'); loadStatus(); }).catch(fail);
     }

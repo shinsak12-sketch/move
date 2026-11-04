@@ -11,6 +11,7 @@ export default handler(['POST'], async (req, res) => {
   if (b.action === 'reset') await sql`UPDATE roster SET pw_hash = NULL, fail_count = 0, locked = FALSE WHERE id = ${id}`;
   else if (b.action === 'unlock') await sql`UPDATE roster SET fail_count = 0, locked = FALSE WHERE id = ${id}`;
   else if (b.action === 'reopen') await sql`UPDATE responses SET status = 'reopened' WHERE roster_id = ${id}`;
+  else if (b.action === 'calcReset') await sql`UPDATE responses SET calc_count = 0 WHERE roster_id = ${id}`;
   else return fail(res, 400, '알 수 없는 처리');
   await audit('admin_' + b.action, id);
   send(res, 200, { ok: true });

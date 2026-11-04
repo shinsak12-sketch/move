@@ -5,6 +5,9 @@ import { handler, body, fail, send, auth } from '../lib/http.js';
 import { getSettings } from '../lib/settings.js';
 import { addrKey } from '../lib/sec.js';
 import { geocode, drive, pool, OPTION } from '../lib/geo.js';
+import { CONTACT } from '../lib/settings.js';
+
+export const CALC_LIMIT = 2; // 처음 1번 + 재산출 1번
 
 export default handler(['POST'], async (req, res) => {
   const t = auth(req, ['emp']);
@@ -17,9 +20,12 @@ export default handler(['POST'], async (req, res) => {
   const road = String(b.road || '').trim(), jibun = String(b.jibun || '').trim();
   if (!road) return fail(res, 400, '현 거주지 주소가 필요함.');
 
-  const cur = await sql`SELECT status FROM responses WHERE roster_id = ${t.sub}`;
+  const cur = await sql`SELECT status, calc_count FROM responses WHERE roster_id = ${t.sub}`;
   if (cur[0] && cur[0].status === 'submitted') return fail(res, 409, '이미 제출했음.');
+  const used = cur[0] ? cur[0].calc_count : 0;
+  if (used >= CALC_LIMIT) return fail(res, 429, '거리 산출은 재산출 포함 2번까지만 가능함. ' + CONTACT + '에게 연락해 주세요.', { calcCount: used, calcLimit: CALC_LIMIT });
 
+  // 좌표를 못 찾으면 횟수를 쓰지 않음
   const home = (await geocode(road)) || (await geocode(jibun));
   if (!home) return fail(res, 422, '주소 위치를 찾지 못했음. 주소를 다시 검색해 주세요.');
 
@@ -34,13 +40,15 @@ export default handler(['POST'], async (req, res) => {
     await sql`INSERT INTO distances (roster_id, site_id, km, min, option, calc_at)
               SELECT ${t.sub}, s, k, m, ${OPTION}, NOW() FROM UNNEST(${ids}::int[], ${kms}::numeric[], ${mins}::int[]) AS x(s, k, m)`;
   }
-  await sql`INSERT INTO responses (roster_id, status, addr_hash, calc_at) VALUES (${t.sub}, 'draft', ${addrKey(road)}, NOW())
+  const up = await sql`INSERT INTO responses (roster_id, status, addr_hash, calc_at, calc_count) VALUES (${t.sub}, 'draft', ${addrKey(road)}, NOW(), 1)
             ON CONFLICT (roster_id) DO UPDATE SET addr_hash = EXCLUDED.addr_hash, calc_at = EXCLUDED.calc_at,
-            status = CASE WHEN responses.status = 'submitted' THEN responses.status ELSE 'draft' END`;
+            calc_count = responses.calc_count + 1,
+            status = CASE WHEN responses.status = 'submitted' THEN responses.status ELSE 'draft' END
+            RETURNING calc_count`;
   await audit('calc', t.sub);
 
   const list = await sql`SELECT o.code, o.dept, o.name, d.km::float AS km, d.min FROM orgs o
                          LEFT JOIN distances d ON d.site_id = o.site_id AND d.roster_id = ${t.sub}
                          ORDER BY d.km NULLS LAST, o.sort, o.code`;
-  send(res, 200, { list, failed: sites.length - ids.length, houseKm: st.houseKm, calcAt: new Date().toISOString() });
+  send(res, 200, { list, failed: sites.length - ids.length, houseKm: st.houseKm, calcAt: new Date().toISOString(), calcCount: up[0].calc_count, calcLimit: CALC_LIMIT });
 });
