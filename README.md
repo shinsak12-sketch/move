@@ -43,11 +43,11 @@ DB 표는 첫 요청 때 자동으로 만들어짐(`lib/db.js`).
    | `ADMIN_ID` · `ADMIN_PASSWORD` | 관리자 계정 1개 |
    | `NAVER_CLIENT_ID` · `NAVER_CLIENT_SECRET` | 네이버 클라우드 Maps 인증키 (**Geocoding + Directions 5** 둘 다 이용 신청). HR노트 사택 신청과 같은 키 써도 됨 |
    | `NAVER_GEOCODE_URL` · `NAVER_DIRECTIONS_URL` | (선택) 기본값 `https://maps.apigw.ntruss.com/map-geocode/v2/geocode` · `…/map-direction/v1/driving` |
-   | `PUBLIC_KEY` | 4번에서 만든 공개키 |
+   | `ENC_PUBLIC_KEY` (또는 `PUBLIC_KEY`) | 4번에서 만든 공개키. `PUBLIC_KEY` 이름은 Vercel 이 Sensitive 로 못 저장하니 `ENC_PUBLIC_KEY` 추천 |
 
 4. **키 만들기**: 배포 후 `/admin.html` 로그인 › **키 관리** › 키 비밀번호 입력 › [키 만들기]
    - 개인키 파일이 내려받아짐 → **담당자만 보관**. 잃어버리면 자료를 못 엶
-   - 화면의 공개키를 `PUBLIC_KEY`에 넣고 **다시 배포**함
+   - 화면의 공개키를 `ENC_PUBLIC_KEY`에 넣고 **다시 배포**함
 5. **조직 주소 업로드**: 엑셀 머리글 `조직코드 · 부서 · 센터명 · 주소`. 같은 주소는 묶어서 한 번만 계산함. 좌표 실패가 뜨면 주소를 고쳐 다시 올림
 6. **명단 업로드**: 엑셀 머리글 `본부 · 부서 · 센터 · 이름 · 생년월일` (관리자 › 명단 › [양식 내려받기]). 생년월일은 6자리, 8자리, 날짜 모두 됨
 7. 직원 링크(`https://<도메인>/`)를 사내 메신저로 안내함

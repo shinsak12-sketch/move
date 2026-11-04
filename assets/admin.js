@@ -128,7 +128,7 @@
         '<label class="cb"><input type="checkbox" id="rm"> 이 파일에 없는 사람은 서버 명단에서 지움 (응답도 함께 지워짐)</label>' +
         '<div><button class="btn pri" type="button" data-act="uploadRoster"' + (p.bad.length || p.dup.length || A.busy ? ' disabled' : '') + '>' + (A.busy ? '올리는 중…' : '서버에 올리기') + '</button></div>';
     }
-    return h + '<div class="muted">서버에는 성명 · 생년월일이 해시(로그인 확인용)와 암호문(관리자 열람용)으로만 저장됨. <b>먼저 [키 관리]에서 키를 만들고, 공개키를 Vercel 환경변수 PUBLIC_KEY 에 넣고 다시 배포한 뒤</b> 올려야 함.</div></div>';
+    return h + '<div class="muted">서버에는 성명 · 생년월일이 해시(로그인 확인용)와 암호문(관리자 열람용)으로만 저장됨. <b>먼저 [키 관리]에서 키를 만들고, 공개키를 Vercel 환경변수 ENC_PUBLIC_KEY 에 넣고 다시 배포한 뒤</b> 올려야 함.</div></div>';
   }
   function vOrgs() {
     var o = A.orgs;
@@ -155,9 +155,9 @@
   }
   function vKey() {
     return '<h1>키 관리</h1><div class="card" style="display:flex;flex-direction:column;gap:12px"><b style="font-size:15px">처음 한 번: 키 만들기</b>' +
-      '<div class="muted">① 키 비밀번호를 정하고 [키 만들기] → 개인키 파일이 내려받아짐 (담당자만 보관 · 잃어버리면 자료를 못 엶)<br>② 아래 공개키를 Vercel 환경변수 <b>PUBLIC_KEY</b> 에 넣고 다시 배포<br>③ 그다음 명단을 올릴 것 (키를 바꾸면 이전 자료는 열 수 없음)</div>' +
+      '<div class="muted">① 키 비밀번호를 정하고 [키 만들기] → 개인키 파일이 내려받아짐 (담당자만 보관 · 잃어버리면 자료를 못 엶)<br>② 아래 공개키를 Vercel 환경변수 <b>ENC_PUBLIC_KEY</b> 에 넣고 다시 배포<br>③ 그다음 명단을 올릴 것 (키를 바꾸면 이전 자료는 열 수 없음)</div>' +
       '<div class="row"><input class="inp" id="kp1" type="password" placeholder="키 비밀번호 (8자 이상)" autocomplete="new-password"><input class="inp" id="kp2" type="password" placeholder="한 번 더" autocomplete="new-password"><button class="btn pri" type="button" data-act="genKey">키 만들기</button></div>' +
-      (A.pub ? '<b style="font-size:13.5px">공개키 (PUBLIC_KEY 값)</b><div class="pem" id="pubpem">' + esc(A.pub) + '</div><div><button class="btn sm" type="button" data-act="copyPub">공개키 복사</button></div>' : '') +
+      (A.pub ? '<b style="font-size:13.5px">공개키 (ENC_PUBLIC_KEY 값)</b><div class="pem" id="pubpem">' + esc(A.pub) + '</div><div><button class="btn sm" type="button" data-act="copyPub">공개키 복사</button></div>' : '') +
       '</div><div class="card" style="display:flex;flex-direction:column;gap:10px"><b style="font-size:15px">개인키 불러오기</b><div class="muted">상태: <b style="color:#111827">' + (A.key ? '불러옴 (이 창을 닫으면 지워짐)' : '안 불러옴') + '</b></div>' + keyBox() + '</div>';
   }
   function vWipe() {
@@ -262,7 +262,7 @@
       var p1 = document.getElementById('kp1').value, p2 = document.getElementById('kp2').value;
       if (p1.length < 8) return toast('키 비밀번호는 8자 이상', true);
       if (p1 !== p2) return toast('두 비밀번호가 다름', true);
-      return genKey(p1).then(function () { toast('개인키 파일을 내려받았음. 아래 공개키를 PUBLIC_KEY 에 넣을 것'); render(); }).catch(fail);
+      return genKey(p1).then(function () { toast('개인키 파일을 내려받았음. 아래 공개키를 ENC_PUBLIC_KEY 에 넣을 것'); render(); }).catch(fail);
     }
     if (a === 'copyPub') return navigator.clipboard.writeText(A.pub).then(function () { toast('공개키 복사함'); });
     if (a === 'wipe') {
