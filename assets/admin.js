@@ -96,34 +96,35 @@
     var s = A.status; if (!s) return '<h1>진행 현황</h1><div class="card muted">불러오는 중…</div>';
     var rows = s.rows, n = rows.length, c = { done: 0, ing: 0, no: 0, lock: 0 };
     rows.forEach(function (r) { c[stOf(r)]++; });
-    var by = {}; rows.forEach(function (r) { var d = r.dept || '(부서 없음)'; by[d] = by[d] || { n: 0, done: 0, ing: 0 }; by[d].n++; var x = stOf(r); if (x === 'done') by[d].done++; else if (x === 'ing') by[d].ing++; });
+    var by = {}; rows.forEach(function (r) { var d = (r.hq ? r.hq + ' › ' : '') + (r.dept || '(부서 없음)'); by[d] = by[d] || { n: 0, done: 0, ing: 0 }; by[d].n++; var x = stOf(r); if (x === 'done') by[d].done++; else if (x === 'ing') by[d].ing++; });
     var h = '<div class="row" style="justify-content:space-between"><h1>진행 현황</h1><span class="row"><span class="muted">' + fmt(s.at) + ' 기준</span><button class="btn sm" type="button" data-act="reload">새로고침</button></span></div>' +
       '<div class="kpis"><div class="card kpi"><span>명단</span><b>' + n + '</b></div><div class="card kpi"><span>제출</span><b style="color:#2B55D9">' + c.done + '</b></div><div class="card kpi"><span>작성 중</span><b>' + c.ing + '</b></div><div class="card kpi"><span>미접속 · 잠김</span><b>' + (c.no + c.lock) + '</b></div><div class="card kpi"><span>제출률</span><b>' + (n ? (c.done / n * 100).toFixed(1) : '0') + '%</b></div></div>';
     h += '<div class="row" style="align-items:flex-start;gap:16px"><div class="card" style="flex:1 1 420px;min-width:0"><div class="row" style="justify-content:space-between;margin-bottom:8px"><b style="font-size:15px">부서별</b><span><span class="lg"><i class="s1"></i>제출</span><span class="lg"><i class="s2"></i>작성 중</span></span></div>' +
-      Object.keys(by).sort().map(function (d) { var x = by[d]; return '<div class="dbar"><b>' + esc(d) + '</b><div class="stack"><i class="s1" style="width:' + (x.done / x.n * 100) + '%"></i><i class="s2" style="width:' + (x.ing / x.n * 100) + '%"></i></div><span class="muted" style="text-align:right">' + x.done + ' / ' + x.n + ' · ' + Math.round(x.done / x.n * 100) + '%</span></div>'; }).join('') + '</div>';
+      Object.keys(by).sort().map(function (d) { var x = by[d]; return '<div class="dbar"><b style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + esc(d) + '">' + esc(d) + '</b><div class="stack"><i class="s1" style="width:' + (x.done / x.n * 100) + '%"></i><i class="s2" style="width:' + (x.ing / x.n * 100) + '%"></i></div><span class="muted" style="text-align:right">' + x.done + ' / ' + x.n + ' · ' + Math.round(x.done / x.n * 100) + '%</span></div>'; }).join('') + '</div>';
     h += '<div class="card" style="flex:1 1 520px;min-width:0;display:flex;flex-direction:column;gap:12px"><div class="row" style="justify-content:space-between"><b style="font-size:15px">대상자</b>' +
       (A.key ? '<span class="row"><input class="inp" id="nq" placeholder="이름 검색" value="' + esc(A.q) + '" style="height:32px;width:140px"><button class="btn sm" type="button" data-act="copy">미제출 명단 복사</button></span>' : '') + '</div>' + keyBox();
     if (A.key) {
       h += '<div class="seg">' + [['pending', '미제출'], ['done', '제출'], ['lock', '잠김'], ['all', '전체']].map(function (f) { return '<button type="button" class="' + (A.filter === f[0] ? 'on' : '') + '" data-act="filter" data-k="' + f[0] + '">' + f[1] + '</button>'; }).join('') + '</div>';
       var list = rows.filter(function (r) { var x = stOf(r); return A.filter === 'all' || (A.filter === 'pending' ? x !== 'done' : x === A.filter); })
         .filter(function (r) { return !A.q || ((A.names[r.id] || {}).name || '').indexOf(A.q) >= 0; });
-      h += '<div class="tbox"><table class="t"><thead><tr><th>성명</th><th>생년월일</th><th>부서</th><th>상태</th><th>산출</th><th>최근 접속</th><th></th></tr></thead><tbody>' +
+      h += '<div class="tbox"><table class="t"><thead><tr><th>이름</th><th>생년월일</th><th>본부</th><th>부서</th><th>센터</th><th>상태</th><th>산출</th><th>최근 접속</th><th></th></tr></thead><tbody>' +
         list.slice(0, 500).map(function (r) {
           var p = A.names[r.id] || {}, x = stOf(r);
           var acts = (r.locked ? '<button class="btn sm" data-act="acc" data-k="unlock" data-id="' + r.id + '">잠금 해제</button> ' : '') +
             (r.has_pw ? '<button class="btn sm" data-act="acc" data-k="reset" data-id="' + r.id + '">비번 초기화</button> ' : '') +
             (r.status === 'submitted' ? '<button class="btn sm" data-act="acc" data-k="reopen" data-id="' + r.id + '">재작성 허용</button>' : '') +
             (r.status !== 'submitted' && r.calc_count >= 2 ? '<button class="btn sm" data-act="acc" data-k="calcReset" data-id="' + r.id + '">산출 횟수 초기화</button>' : '');
-          return '<tr><td><b>' + esc(p.name) + '</b></td><td>' + esc(p.birth) + '</td><td>' + esc(r.dept) + '</td><td><span class="pill ' + ST[x][1] + '">' + ST[x][0] + '</span></td><td class="muted">' + (r.calc_count ? r.calc_count + '/2' : '') + '</td><td class="muted">' + fmt(r.submitted_at || r.last_login) + '</td><td style="text-align:right">' + acts + '</td></tr>';
+          return '<tr><td><b>' + esc(p.name) + '</b></td><td>' + esc(p.birth) + '</td><td>' + esc(r.hq) + '</td><td>' + esc(r.dept) + '</td><td>' + esc(r.center) + '</td><td><span class="pill ' + ST[x][1] + '">' + ST[x][0] + '</span></td><td class="muted">' + (r.calc_count ? r.calc_count + '/2' : '') + '</td><td class="muted">' + fmt(r.submitted_at || r.last_login) + '</td><td style="text-align:right">' + acts + '</td></tr>';
         }).join('') + '</tbody></table></div><div class="muted">' + list.length + '명' + (list.length > 500 ? ' (앞 500명만 표시 · 검색으로 좁히기)' : '') + '</div>';
     }
     return h + '</div></div>';
   }
   function vRoster() {
     var p = A.roster;
-    var h = '<h1>명단</h1><div class="card" style="display:flex;flex-direction:column;gap:14px"><label class="drop"><b style="color:#111827">엑셀 파일 선택 (.xlsx · .csv)</b><br>첫 시트 · 머리글: <b>성명</b>(또는 이름), <b>생년월일</b>, <b>부서</b>(선택)<br>생년월일은 6자리 · 8자리 · 날짜 모두 됨 → 6자리로 바꿔 저장<input type="file" id="rf" accept=".xlsx,.xls,.csv"></label>';
+    var h = '<div class="row" style="justify-content:space-between"><h1>명단</h1><button class="btn" type="button" data-act="template">양식 내려받기</button></div><div class="card" style="display:flex;flex-direction:column;gap:14px"><label class="drop"><b style="color:#111827">엑셀 파일 선택 (.xlsx · .csv)</b><br>첫 시트 · 머리글: <b>본부 · 부서 · 센터 · 이름 · 생년월일</b><br>생년월일은 6자리 · 8자리 · 날짜 모두 됨 → 6자리로 바꿔 저장<input type="file" id="rf" accept=".xlsx,.xls,.csv"></label>';
     if (p) {
-      h += '<div class="row" style="gap:22px"><span>파일 <b>' + esc(p.file) + '</b></span><span>읽은 행 <b>' + p.rows.length + '</b></span>' + (p.bad.length ? '<span class="bad">형식 오류 ' + p.bad.length + '행 (' + p.bad.slice(0, 15).join(', ') + ')</span>' : '<span class="ok">✓ 형식 오류 0</span>') + (p.dup.length ? '<span class="bad">중복 ' + p.dup.length + '행 (' + p.dup.slice(0, 15).join(', ') + ')</span>' : '<span class="ok">✓ 중복 0</span>') + '</div>' +
+      var hqN = {}; p.rows.forEach(function (r) { hqN[r.hq || '(본부 없음)'] = (hqN[r.hq || '(본부 없음)'] || 0) + 1; });
+      h += '<div class="row" style="gap:22px"><span>파일 <b>' + esc(p.file) + '</b></span><span>읽은 행 <b>' + p.rows.length + '</b></span><span class="muted">' + Object.keys(hqN).map(function (k) { return esc(k) + ' ' + hqN[k]; }).join(' · ') + '</span>' + (p.bad.length ? '<span class="bad">형식 오류 ' + p.bad.length + '행 (' + p.bad.slice(0, 15).join(', ') + ')</span>' : '<span class="ok">✓ 형식 오류 0</span>') + (p.dup.length ? '<span class="bad">중복 ' + p.dup.length + '행 (' + p.dup.slice(0, 15).join(', ') + ')</span>' : '<span class="ok">✓ 중복 0</span>') + '</div>' +
         '<label class="cb"><input type="checkbox" id="rm"> 이 파일에 없는 사람은 서버 명단에서 지움 (응답도 함께 지워짐)</label>' +
         '<div><button class="btn pri" type="button" data-act="uploadRoster"' + (p.bad.length || p.dup.length || A.busy ? ' disabled' : '') + '>' + (A.busy ? '올리는 중…' : '서버에 올리기') + '</button></div>';
     }
@@ -197,24 +198,24 @@
     var oname = function (c) { return c && byCode[c] ? byCode[c].name : ''; };
     var info = [['항목', '값'], ['생성일시', fmt(x.at)], ['거리 기준', '네이버 길찾기 ' + x.option + ' (현 거주지 기준)'], ['사택 기준', K + 'km 이상'], ['동의서 버전', x.consentVersion], ['형식버전', 1], ['인원', x.roster.length]];
     var org = [['조직코드', '부서', '센터명', '주소']].concat(orgs.map(function (o) { return [o.code, o.dept, o.name, o.addr]; }));
-    var ans = [['성명', '생년월일', '부서(명단)', '상태', '제출일시', '현 주소', '현 주소 상세', '지번', '우편번호', '2025 주소 변경', '이전 주소', '이전 주소 상세', '이사 예정', '이사 예정월', '이사 예정지(동)', '발령 기준지로', '발령 희망', '사유 구분', '사유', '희망 1순위', '희망 2순위', '희망 3순위', '거리 산출일시', '가장 가까운 센터', '최단 거리(km)', '사택 대상 수']];
-    var dHead = ['성명', '생년월일'].concat(orgs.map(function (o) { return o.name + ' (' + o.code + ')'; }));
-    var dK = [dHead], dM = [dHead], house = [['성명', '생년월일', '조직코드', '센터명', '거리(km)', '소요(분)']], pend = [['성명', '생년월일', '부서(명단)', '상태']];
+    var ans = [['본부', '부서', '센터', '이름', '생년월일', '상태', '제출일시', '현 주소', '현 주소 상세', '지번', '우편번호', '2025 주소 변경', '이전 주소', '이전 주소 상세', '이사 예정', '이사 예정월', '이사 예정지(동)', '발령 기준지로', '발령 희망', '사유 구분', '사유', '희망 1순위', '희망 2순위', '희망 3순위', '거리 산출일시', '가장 가까운 센터', '최단 거리(km)', '사택 대상 수']];
+    var dHead = ['본부', '부서', '센터', '이름', '생년월일'].concat(orgs.map(function (o) { return o.name + ' (' + o.code + ')'; }));
+    var dK = [dHead], dM = [dHead], house = [['본부', '부서', '센터', '이름', '생년월일', '조직코드', '대상 센터명', '거리(km)', '소요(분)']], pend = [['본부', '부서', '센터', '이름', '생년월일', '상태']];
     x.roster.forEach(function (r, i) {
       var id = ids[i] || {}, s = resp[r.id], p = pays[i] || {}, dm = dist[r.id] || {};
       var vals = orgs.map(function (o) { return dm[o.site_id] || null; });
       var best = null, bi = -1, nHouse = 0;
-      vals.forEach(function (v, j) { if (v) { if (best === null || v.km < best) { best = v.km; bi = j; } if (v.km >= K) { nHouse++; house.push([id.name, id.birth, orgs[j].code, orgs[j].name, v.km, v.min]); } } });
+      vals.forEach(function (v, j) { if (v) { if (best === null || v.km < best) { best = v.km; bi = j; } if (v.km >= K) { nHouse++; house.push([r.hq || '', r.dept || '', r.center || '', id.name, id.birth, orgs[j].code, orgs[j].name, v.km, v.min]); } } });
       var sub = s && s.status === 'submitted';
       var h = p.home || {}, pv = p.prev || {};
-      ans.push([id.name, id.birth, r.dept || '', stName(s), sub ? fmt(s.submitted_at) : '', h.road || '', h.detail || '', h.jibun || '', h.zip || '',
+      ans.push([r.hq || '', r.dept || '', r.center || '', id.name, id.birth, stName(s), sub ? fmt(s.submitted_at) : '', h.road || '', h.detail || '', h.jibun || '', h.zip || '',
         s && sub ? (s.prev_changed ? '달라짐' : '같음') : '', pv.road || '', pv.detail || '',
         s && sub ? (s.move_planned ? '있음' : '없음') : '', s && s.move_month || '', p.move ? p.move.area : '', s && s.move_as_base ? '예' : '',
         s && sub ? (s.wish === 'Y' ? '희망' : '희망 안 함') : '', s && s.reason_code || '', p.reasonText || '', oname(s && s.wish1), oname(s && s.wish2), oname(s && s.wish3),
         s && s.calc_at ? fmt(s.calc_at) : '', bi >= 0 ? orgs[bi].name : '', best == null ? '' : best, bi >= 0 ? nHouse : '']);
-      dK.push([id.name, id.birth].concat(vals.map(function (v) { return v ? v.km : ''; })));
-      dM.push([id.name, id.birth].concat(vals.map(function (v) { return v ? v.min : ''; })));
-      if (!sub) pend.push([id.name, id.birth, r.dept || '', stName(s)]);
+      dK.push([r.hq || '', r.dept || '', r.center || '', id.name, id.birth].concat(vals.map(function (v) { return v ? v.km : ''; })));
+      dM.push([r.hq || '', r.dept || '', r.center || '', id.name, id.birth].concat(vals.map(function (v) { return v ? v.min : ''; })));
+      if (!sub) pend.push([r.hq || '', r.dept || '', r.center || '', id.name, id.birth, stName(s)]);
     });
     var wb = XLSX.utils.book_new();
     [['정보', info], ['조직', org], ['응답', ans], ['거리', dK], ['소요시간', dM], ['사택대상', house], ['미제출', pend]].forEach(function (s) { XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(s[1]), s[0]); });
@@ -234,8 +235,8 @@
     if (a === 'logout') { A.token = ''; A.key = null; A.names = {}; sessionStorage.removeItem('addr-admin.token'); return render(); }
     if (a === 'filter') { A.filter = k; return render(); }
     if (a === 'copy') {
-      var list = A.status.rows.filter(function (r) { return stOf(r) !== 'done'; }).map(function (r) { var p = A.names[r.id] || {}; return [p.name, p.birth, r.dept || '', ST[stOf(r)][0]].join('\t'); });
-      return navigator.clipboard.writeText(['성명\t생년월일\t부서\t상태'].concat(list).join('\n')).then(function () { toast('미제출 ' + list.length + '명 복사함 (엑셀에 붙여넣기 가능)'); });
+      var list = A.status.rows.filter(function (r) { return stOf(r) !== 'done'; }).map(function (r) { var p = A.names[r.id] || {}; return [r.hq || '', r.dept || '', r.center || '', p.name, p.birth, ST[stOf(r)][0]].join('\t'); });
+      return navigator.clipboard.writeText(['본부\t부서\t센터\t이름\t생년월일\t상태'].concat(list).join('\n')).then(function () { toast('미제출 ' + list.length + '명 복사함 (엑셀에 붙여넣기 가능)'); });
     }
     if (a === 'acc') {
       var label = { reset: '비밀번호를 초기화', unlock: '잠금을 해제', reopen: '제출을 풀어 재작성을 허용', calcReset: '거리 산출 횟수를 0으로 초기화' }[k];
@@ -247,6 +248,12 @@
       return api('admin/roster', { rows: A.roster.rows, removeMissing: document.getElementById('rm') && document.getElementById('rm').checked }).then(function (r) { A.busy = false; A.roster = null; toast('올림 ' + r.uploaded + '명 · 서버 명단 ' + r.total + '명' + (r.removed ? ' · 삭제 ' + r.removed + '명' : '')); setView('dash'); }).catch(fail);
     }
     if (a === 'export') return doExport();
+    if (a === 'template') {
+      var wb0 = XLSX.utils.book_new(), ws0 = XLSX.utils.aoa_to_sheet([['본부', '부서', '센터', '이름', '생년월일'], ['예) 수도권본부', '강북부서', '강북1센터', '홍길동', '900101']]);
+      ws0['!cols'] = [{ wch: 14 }, { wch: 14 }, { wch: 14 }, { wch: 10 }, { wch: 10 }];
+      for (var ci = 0; ci < 5; ci++) { var ad0 = XLSX.utils.encode_cell({ r: 1, c: ci }); if (ws0[ad0]) ws0[ad0].t = 's'; }
+      XLSX.utils.book_append_sheet(wb0, ws0, '명단'); XLSX.writeFile(wb0, '명단_양식.xlsx'); return;
+    }
     if (a === 'saveSettings') {
       var body = { open: document.getElementById('sOpen').checked, houseKm: Number(document.getElementById('sKm').value), reasons: document.getElementById('sReasons').value.split('\n'), consentText: document.getElementById('sConsent').value };
       return api('admin/settings', body).then(function (s) { A.settings = s; toast('저장했음'); render(); }).catch(fail);
@@ -276,11 +283,12 @@
       readSheet(f).then(function (rows) {
         var out = [], bad = [], dup = [], seen = {};
         rows.forEach(function (r, i) {
-          var name = String(pick(r, ['성명', '이름', 'name'])).trim(), b = birth6(pick(r, ['생년월일', '생일', 'birth'])), dept = String(pick(r, ['부서', '소속', 'dept'])).trim();
+          var name = String(pick(r, ['이름', '성명', 'name'])).trim(), b = birth6(pick(r, ['생년월일', '생일', 'birth']));
+          var hq = String(pick(r, ['본부', 'hq'])).trim(), dept = String(pick(r, ['부서', '소속', 'dept'])).trim(), center = String(pick(r, ['센터', '센터명', 'center'])).trim();
           if (!name && !b) return;
           if (name.length < 2 || !/^\d{6}$/.test(b)) { bad.push(i + 2); return; }
           var key = name.replace(/\s/g, '') + '|' + b; if (seen[key]) { dup.push(i + 2); return; } seen[key] = 1;
-          out.push({ name: name, birth: b, dept: dept });
+          out.push({ hq: hq, dept: dept, center: center, name: name, birth: b });
         });
         A.roster = { file: f.name, rows: out, bad: bad, dup: dup }; render();
       }).catch(fail);

@@ -10,7 +10,7 @@ export default handler(['GET'], async (req, res) => {
   const sql = db();
   const st = await getSettings();
   const orgs = await sql`SELECT o.code, o.dept, o.name, o.site_id, s.addr FROM orgs o LEFT JOIN org_sites s ON s.id = o.site_id ORDER BY o.sort, o.code`;
-  const roster = await sql`SELECT id, enc_identity, dept, consent_version, consent_at FROM roster ORDER BY dept NULLS LAST, id`;
+  const roster = await sql`SELECT id, enc_identity, hq, dept, center, consent_version, consent_at FROM roster ORDER BY hq NULLS LAST, dept NULLS LAST, center NULLS LAST, id`;
   const responses = await sql`SELECT roster_id, status, calc_at, enc_payload, prev_changed, move_planned, move_month, move_as_base,
                                      wish, reason_code, wish1, wish2, wish3, submitted_at FROM responses`;
   const distances = await sql`SELECT roster_id, site_id, km::float AS km, min FROM distances`;
