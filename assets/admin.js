@@ -128,7 +128,7 @@
         '<label class="cb"><input type="checkbox" id="rm"> 이 파일에 없는 사람은 서버 명단에서 지움 (응답도 함께 지워짐)</label>' +
         '<div><button class="btn pri" type="button" data-act="uploadRoster"' + (p.bad.length || p.dup.length || A.busy ? ' disabled' : '') + '>' + (A.busy ? '올리는 중…' : '서버에 올리기') + '</button></div>';
     }
-    return h + '<div class="muted">서버에는 성명 · 생년월일이 해시(로그인 확인용)와 암호문(관리자 열람용)으로만 저장됨. <b>개인키를 만들고 PUBLIC_KEY 를 설정한 뒤</b> 올려야 함.</div></div>';
+    return h + '<div class="muted">서버에는 성명 · 생년월일이 해시(로그인 확인용)와 암호문(관리자 열람용)으로만 저장됨. <b>먼저 [키 관리]에서 키를 만들고, 공개키를 Vercel 환경변수 PUBLIC_KEY 에 넣고 다시 배포한 뒤</b> 올려야 함.</div></div>';
   }
   function vOrgs() {
     var o = A.orgs;

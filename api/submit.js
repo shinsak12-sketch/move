@@ -1,5 +1,5 @@
 // 최종 제출 — 주소 · 사유 서술은 공개키로 암호화해서 저장. 제출 후 수정 불가
-import { db, ensure, audit } from '../lib/db.js';
+import { db, ensure, audit, member } from '../lib/db.js';
 import { handler, body, fail, send, auth } from '../lib/http.js';
 import { getSettings, CONTACT } from '../lib/settings.js';
 import { addrKey, seal } from '../lib/sec.js';
@@ -10,6 +10,7 @@ export default handler(['POST'], async (req, res) => {
   const t = auth(req, ['emp']);
   if (!t) return fail(res, 401, '다시 로그인해 주세요.');
   await ensure();
+  if (!(await member(t.sub))) return fail(res, 401, '명단에 없거나 잠긴 계정임. 다시 로그인해 주세요.');
   const sql = db();
   const st = await getSettings();
   if (!st.open) return fail(res, 403, '지금은 접수 기간이 아님.');

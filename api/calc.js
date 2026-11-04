@@ -1,6 +1,6 @@
 // 거리 산출 — 현 거주지 주소를 받아 좌표로 바꾸고, 주소가 다른 조직 위치마다 1번씩 경로 거리를 구함
 // 주소 원문과 좌표는 저장하지 않음. 남기는 것: 주소 해시(제출 때 같은 주소인지 확인용) + 거리값
-import { db, ensure, audit } from '../lib/db.js';
+import { db, ensure, audit, member } from '../lib/db.js';
 import { handler, body, fail, send, auth } from '../lib/http.js';
 import { getSettings } from '../lib/settings.js';
 import { addrKey } from '../lib/sec.js';
@@ -13,6 +13,7 @@ export default handler(['POST'], async (req, res) => {
   const t = auth(req, ['emp']);
   if (!t) return fail(res, 401, '다시 로그인해 주세요.');
   await ensure();
+  if (!(await member(t.sub))) return fail(res, 401, '명단에 없거나 잠긴 계정임. 다시 로그인해 주세요.');
   const sql = db();
   const st = await getSettings();
   if (!st.open) return fail(res, 403, '지금은 접수 기간이 아님.');
