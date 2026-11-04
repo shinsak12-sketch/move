@@ -132,7 +132,7 @@
   }
   function vOrgs() {
     var o = A.orgs;
-    var h = '<div class="row" style="justify-content:space-between"><h1>조직 주소</h1><label class="btn" style="display:inline-flex;align-items:center">' + (A.busy ? '좌표 변환 중…' : '엑셀 업로드') + '<input type="file" id="of" accept=".xlsx,.xls,.csv" style="display:none"></label></div>' +
+    var h = '<div class="row" style="justify-content:space-between"><h1>조직 주소</h1><span class="row"><button class="btn" type="button" data-act="orgTemplate">양식 내려받기</button><label class="btn pri" style="display:inline-flex;align-items:center">' + (A.busy ? '좌표 변환 중…' : '엑셀 업로드') + '<input type="file" id="of" accept=".xlsx,.xls,.csv" style="display:none"></label></span></div>' +
       '<div class="muted">머리글: <b>조직코드</b>, <b>부서</b>, <b>센터명</b>, <b>주소</b> · 올리면 기존 조직 목록을 통째로 바꿈 · 주소가 같은 조직은 한 위치로 묶어 거리를 한 번만 계산함</div>';
     if (!o) return h + '<div class="card muted">불러오는 중…</div>';
     h += '<div class="card row" style="gap:26px"><span>조직 <b>' + o.list.length + '곳</b></span><span>실제 위치 <b>' + o.sites + '곳</b></span>' + (o.failed.length ? '<span class="bad">좌표 실패 ' + o.failed.length + '곳: ' + esc(o.failed.join(', ')) + ' — 주소를 고쳐 다시 올릴 것</span>' : '<span class="ok">✓ 좌표 변환 완료</span>') + '</div>';
@@ -248,6 +248,11 @@
       return api('admin/roster', { rows: A.roster.rows, removeMissing: document.getElementById('rm') && document.getElementById('rm').checked }).then(function (r) { A.busy = false; A.roster = null; toast('올림 ' + r.uploaded + '명 · 서버 명단 ' + r.total + '명' + (r.removed ? ' · 삭제 ' + r.removed + '명' : '')); setView('dash'); }).catch(fail);
     }
     if (a === 'export') return doExport();
+    if (a === 'orgTemplate') {
+      var wb1 = XLSX.utils.book_new(), ws1 = XLSX.utils.aoa_to_sheet([['조직코드', '부서', '센터명', '주소'], ['1001', '강북부서', '강북1센터', '서울특별시 노원구 노해로 000'], ['1002', '강북부서', '강북2센터', '서울특별시 노원구 노해로 000 (1센터와 같은 건물이면 주소를 똑같이)']]);
+      ws1['!cols'] = [{ wch: 10 }, { wch: 14 }, { wch: 14 }, { wch: 48 }];
+      XLSX.utils.book_append_sheet(wb1, ws1, '조직'); XLSX.writeFile(wb1, '조직주소_양식.xlsx'); return;
+    }
     if (a === 'template') {
       var wb0 = XLSX.utils.book_new(), ws0 = XLSX.utils.aoa_to_sheet([['본부', '부서', '센터', '이름', '생년월일'], ['예) 수도권본부', '강북부서', '강북1센터', '홍길동', '900101']]);
       ws0['!cols'] = [{ wch: 14 }, { wch: 14 }, { wch: 14 }, { wch: 10 }, { wch: 10 }];
