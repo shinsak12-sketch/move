@@ -118,3 +118,12 @@ h1.t{margin:8px 0 6px;font-size:23px;line-height:1.35;font-weight:800;letter-spa
 @keyframes spin{to{transform:rotate(360deg)}}
 @keyframes draw{to{stroke-dashoffset:0}}
 @media (prefers-reduced-motion:reduce){*{animation-duration:.01ms !important;transition-duration:.01ms !important}}
+/* 거리 결과: 부서 카드 · 센터 카드 */
+.rcard{margin-bottom:16px;animation:in .3s ease}
+.rhead{display:flex;align-items:baseline;justify-content:space-between;margin:4px 2px 8px}
+.rhead b{font-size:16px;font-weight:800}
+.filters{display:flex;gap:8px;margin-bottom:8px}
+.flt{flex:1;display:flex;flex-direction:column;gap:4px;min-width:0}
+.flt span{font-size:11.5px;color:#4B5563;font-weight:700;padding-left:2px}
+.fsel{font:inherit;width:100%;height:44px;border:1.5px solid #D7DCE4;border-radius:12px;padding:0 10px;font-size:14.5px;background:#FFFFFF;color:#111827}
+.fsel:focus{outline:none;border-color:#2B55D9}

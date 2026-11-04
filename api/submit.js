@@ -42,7 +42,7 @@ export default handler(['POST'], async (req, res) => {
     reasonCode = s(b.reasonCode, 30);
     if (st.reasons.indexOf(reasonCode) < 0) return fail(res, 400, '사유 구분을 골라 주세요.');
     if (s(b.reasonText, 300).length < 5) return fail(res, 400, '사유를 5자 이상 적어 주세요.');
-    const codes = (await sql`SELECT code FROM orgs`).map(r => r.code);
+    const codes = (await sql`SELECT code FROM orgs WHERE kind = '센터'`).map(r => r.code);
     ranks = [0, 1, 2].map(i => (b.ranks && b.ranks[i]) ? String(b.ranks[i]) : null);
     if (!ranks[0]) return fail(res, 400, '1순위 희망 센터를 골라 주세요.');
     const picked = ranks.filter(Boolean);

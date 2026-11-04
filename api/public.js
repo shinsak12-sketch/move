@@ -8,6 +8,6 @@ export default handler(['GET'], async (req, res) => {
   const st = await getSettings();
   const out = { open: st.open, houseKm: st.houseKm, reasons: st.reasons, consentText: st.consentText, consentVersion: st.consentVersion, title: st.surveyTitle, contact: CONTACT };
   const t = auth(req, ['emp']);
-  if (t && (await member(t.sub))) out.orgs = await db()`SELECT code, dept, name FROM orgs ORDER BY sort, code`;
+  if (t && (await member(t.sub))) out.orgs = await db()`SELECT code, kind, region, dept, name FROM orgs ORDER BY sort, code`;
   send(res, 200, out);
 });

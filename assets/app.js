@@ -24,7 +24,7 @@
       agree: { collect: false, overseas: false, entrust: false }, pw1: '', pw2: '',
       home: null, homeDetail: '', prevChanged: false, prev: null, prevDetail: '',
       movePlanned: false, moveMonth: '', moveArea: '', moveBase: false,
-      calc: { state: 'idle', list: [], at: null, road: '' }, filter: 'all',
+      calc: { state: 'idle', list: [], at: null, road: '' }, fdR: 'all', fcR: 'all', fcD: 'all',
       wish: '', reasonCode: '', reasonText: '', ranks: ['', '', ''],
       sheet: null, slot: 0, q: '', confirm: false, busy: false, submittedAt: null, contact: '손사지원파트 신이삭 수석', calcCount: 0, calcLimit: 2
     };
@@ -70,6 +70,7 @@
   function monthLabel(v) { if (!v) return ''; var p = v.split('-'); return p[0] + '년 ' + Number(p[1]) + '월'; }
   function fmtTime(iso) { if (!iso) return ''; var d = new Date(iso), p = function (n) { return ('0' + n).slice(-2); }; return d.getFullYear() + '.' + p(d.getMonth() + 1) + '.' + p(d.getDate()) + ' ' + p(d.getHours()) + ':' + p(d.getMinutes()); }
   function houseKm() { return (cfg && cfg.houseKm) || 50; }
+  function isDept(x) { return x && x.kind === '부서'; }
   function calcLeft() { return (S.calcLimit || 2) - (S.calcCount || 0); }
   function calcNote() {
     var left = calcLeft();
@@ -282,17 +283,31 @@
       h += '<div class="note" style="margin-top:12px' + (calcLeft() <= 0 ? ';background:#FEF0EE;color:#912018' : '') + '"><span>' + calcNote() + '</span></div>';
       return h;
     }
-    var L = c.list || [], K = houseKm(), ok = L.filter(function (x) { return x.km != null; });
-    var inN = ok.filter(function (x) { return x.km < K; }).length, outN = ok.length - inN, near = ok[0];
-    h += '<div class="sum"><div><span>가장 가까운 곳</span><b style="font-size:14px">' + esc(near ? near.name : '-') + '</b><span>' + (near ? near.km.toFixed(1) + 'km' : '') + '</span></div><div><span>' + K + 'km 미만</span><b>' + inN + '곳</b></div><div><span>사택 대상</span><b style="color:#92400E">' + outN + '곳</b></div></div>';
-    h += '<div class="chips">' + [['all', '전체 ' + L.length], ['in', K + 'km 미만 ' + inN], ['out', '사택 대상 ' + outN]].map(function (x) { return '<button class="chip' + (S.filter === x[0] ? ' on' : '') + '" type="button" data-act="filter" data-k="' + x[0] + '">' + x[1] + '</button>'; }).join('') + '</div>';
-    var rows = L.filter(function (x) { return S.filter === 'all' || (x.km != null && (S.filter === 'in' ? x.km < K : x.km >= K)); });
-    h += '<div class="card" style="padding:4px 12px">' + rows.map(function (x) {
-      var no = L.indexOf(x) + 1;
-      return '<div class="row"><span class="n">' + no + '</span><div><span class="nm">' + esc(x.name) + '</span>' + (x.km != null && x.km >= K ? '<span class="house">사택 대상</span>' : '') + '<div class="dp">' + esc(x.dept) + '</div></div>' +
-        '<div class="km">' + (x.km == null ? '<span style="margin:0">산출 실패</span>' : '<b>' + x.km.toFixed(1) + '</b>km<span>약 ' + x.min + '분</span>') + '</div></div>';
-    }).join('') + '</div><div class="hint" style="margin-top:10px">산출 ' + fmtTime(c.at) + ' · ' + K + 'km 이상이면 사택 대상 · 재산출 ' + Math.max(0, calcLeft()) + '번 남음</div>';
+    var L = c.list || [], K = houseKm();
+    var DL = L.filter(isDept), CL = L.filter(function (x) { return !isDept(x); });
+    var okC = CL.filter(function (x) { return x.km != null; });
+    var inN = okC.filter(function (x) { return x.km < K; }).length, outN = okC.length - inN, near = okC[0];
+    h += '<div class="sum"><div><span>가장 가까운 센터</span><b style="font-size:14px">' + esc(near ? near.name : '-') + '</b><span>' + (near ? near.km.toFixed(1) + 'km' : '') + '</span></div><div><span>' + K + 'km 미만 센터</span><b>' + inN + '곳</b></div><div><span>사택 대상 센터</span><b style="color:#92400E">' + outN + '곳</b></div></div>';
+    var regOpts = function (cur) { return [['all', '전체'], ['수도권', '수도권'], ['지방', '지방']].map(function (o) { return '<option value="' + o[0] + '"' + (cur === o[0] ? ' selected' : '') + '>' + o[1] + '</option>'; }).join(''); };
+    // 부서 카드
+    var dRows = DL.filter(function (x) { return S.fdR === 'all' || x.region === S.fdR; });
+    h += '<div class="rcard"><div class="rhead"><b>부서까지 거리</b><span class="cnt">' + dRows.length + '곳</span></div>' +
+      '<div class="filters"><label class="flt"><span>권역</span><select class="fsel" data-sel="fdR">' + regOpts(S.fdR) + '</select></label></div>' +
+      '<div class="card" style="padding:4px 12px">' + (dRows.map(rowHtml).join('') || '<div class="hint" style="padding:14px 0;text-align:center">해당하는 부서 없음</div>') + '</div></div>';
+    // 센터 카드
+    var depts = []; ((cfg && cfg.orgs) || CL).forEach(function (x) { if (!isDept(x) && (S.fcR === 'all' || x.region === S.fcR) && depts.indexOf(x.dept) < 0) depts.push(x.dept); });
+    if (S.fcD !== 'all' && depts.indexOf(S.fcD) < 0) S.fcD = 'all';
+    var cRows = CL.filter(function (x) { return (S.fcR === 'all' || x.region === S.fcR) && (S.fcD === 'all' || x.dept === S.fcD); });
+    h += '<div class="rcard"><div class="rhead"><b>센터까지 거리</b><span class="cnt">' + cRows.length + '곳</span></div>' +
+      '<div class="filters"><label class="flt"><span>권역</span><select class="fsel" data-sel="fcR">' + regOpts(S.fcR) + '</select></label>' +
+      '<label class="flt"><span>부서</span><select class="fsel" data-sel="fcD"><option value="all">전체</option>' + depts.map(function (d) { return '<option' + (S.fcD === d ? ' selected' : '') + '>' + esc(d) + '</option>'; }).join('') + '</select></label></div>' +
+      '<div class="card" style="padding:4px 12px">' + (cRows.map(rowHtml).join('') || '<div class="hint" style="padding:14px 0;text-align:center">해당하는 센터 없음</div>') + '</div></div>';
+    h += '<div class="hint" style="margin-top:10px">산출 ' + fmtTime(c.at) + ' · ' + K + 'km 이상이면 사택 대상 · 가까운 순 · 재산출 ' + Math.max(0, calcLeft()) + '번 남음</div>';
     return h;
+    function rowHtml(x, i) {
+      return '<div class="row"><span class="n">' + (i + 1) + '</span><div><span class="nm">' + esc(x.name) + '</span>' + (x.km != null && x.km >= K ? '<span class="house">사택 대상</span>' : '') + '<div class="dp">' + esc([x.region, isDept(x) ? '' : x.dept].filter(Boolean).join(' · ')) + '</div></div>' +
+        '<div class="km">' + (x.km == null ? '<span style="margin:0">산출 실패</span>' : '<b>' + x.km.toFixed(1) + '</b>km<span>약 ' + x.min + '분</span>') + '</div></div>';
+    }
   };
   V[7] = function () {
     var h = '<h1 class="t">이번 발령에서<br>이동을 희망하나요?</h1><p class="sub">희망하면 사유를 알려주세요. 발령 검토에 참고함.</p>' +
@@ -314,14 +329,15 @@
     return h;
   };
   V[9] = function () {
-    var near = (S.calc.list || []).filter(function (x) { return x.km != null; })[0], K = houseKm();
-    var out = (S.calc.list || []).filter(function (x) { return x.km != null && x.km >= K; }).length;
+    var CL9 = (S.calc.list || []).filter(function (x) { return !isDept(x); });
+    var near = CL9.filter(function (x) { return x.km != null; })[0], K = houseKm();
+    var out = CL9.filter(function (x) { return x.km != null && x.km >= K; }).length;
     var rk = S.ranks.map(function (c, i) { var o = orgByCode(c); return o ? (i + 1) + '. ' + o.name : ''; }).filter(Boolean).join('  ');
     return '<h1 class="t">마지막으로 확인해 주세요</h1><p class="sub">제출하면 수정할 수 없음.</p>' +
       '<div class="sec"><h3>거주지<button type="button" data-go="3">수정</button></h3><div class="kv"><span>현 거주지</span><span><b>' + esc(S.home.road) + ' ' + esc(S.homeDetail) + '</b></span>' +
       '<span>2025년 대비</span><span>' + (S.prevChanged ? '달라짐 · 이전 ' + esc(S.prev.road) + ' ' + esc(S.prevDetail) : '변경 없음') + '</span>' +
       '<span>이사 예정</span><span>' + (S.movePlanned ? esc(monthLabel(S.moveMonth)) + ' · ' + esc(S.moveArea) + (S.moveBase ? ' · 발령 기준지' : '') : '없음') + '</span></div></div>' +
-      '<div class="sec"><h3>거리 산출</h3><div class="kv"><span>가장 가까운 곳</span><span>' + esc(near ? near.name + ' ' + near.km.toFixed(1) + 'km' : '-') + '</span><span>사택 대상</span><span>' + out + '곳 (' + K + 'km 이상)</span></div></div>' +
+      '<div class="sec"><h3>거리 산출</h3><div class="kv"><span>가장 가까운 센터</span><span>' + esc(near ? near.name + ' ' + near.km.toFixed(1) + 'km' : '-') + '</span><span>사택 대상 센터</span><span>' + out + '곳 (' + K + 'km 이상)</span></div></div>' +
       '<div class="sec"><h3>발령 희망<button type="button" data-go="7">수정</button></h3><div class="kv"><span>희망</span><span>' + (S.wish === 'Y' ? '희망함' : '희망 안 함') + '</span>' +
       (S.wish === 'Y' ? '<span>사유</span><span>' + esc(S.reasonCode) + ' · ' + esc(S.reasonText) + '</span><span>희망 센터</span><span>' + esc(rk) + '</span>' : '') + '</div></div>';
   };
@@ -353,7 +369,7 @@
   }
   function rankList() {
     var q = S.q.trim(), K = houseKm();
-    return (S.calc.list || []).filter(function (o) { return !q || o.name.indexOf(q) >= 0 || o.dept.indexOf(q) >= 0; }).map(function (o) {
+    return (S.calc.list || []).filter(function (o) { return !isDept(o) && (!q || o.name.indexOf(q) >= 0 || o.dept.indexOf(q) >= 0); }).map(function (o) {
       var used = S.ranks.indexOf(o.code) >= 0 && S.ranks[S.slot] !== o.code;
       return '<button class="res" type="button" data-act="pickRank" data-k="' + esc(o.code) + '"' + (used ? ' disabled' : '') + '><b>' + esc(o.name) + '</b><span>' + esc(o.dept) + (o.km != null ? ' · ' + o.km.toFixed(1) + 'km · 약 ' + o.min + '분' + (o.km >= K ? ' · 사택 대상' : '') : '') + (used ? ' · 이미 선택함' : '') + '</span></button>';
     }).join('') || '<div class="hint" style="padding:20px 0;text-align:center">검색 결과 없음</div>';
@@ -391,7 +407,6 @@
       case 'togglePrev': S.prevChanged = !S.prevChanged; save(); return render();
       case 'toggleMove': S.movePlanned = !S.movePlanned; if (!S.movePlanned) S.moveBase = false; save(); return render();
       case 'toggleBase': S.moveBase = !S.moveBase; save(); return render();
-      case 'filter': S.filter = k; return render();
       case 'wish': S.wish = k; if (k === 'N' && S.maxStep === 8) S.maxStep = 7; save(); return render();
       case 'rank': S.sheet = 'rank'; S.slot = Number(k); S.q = ''; render(); return;
       case 'rankClear': S.ranks[Number(k)] = ''; save(); return render();
@@ -412,7 +427,10 @@
     if (['name', 'birth', 'loginPw', 'pw1', 'pw2'].indexOf(f) < 0) save();
     refreshCta();
   });
-  app.addEventListener('change', function (e) { var f = e.target.getAttribute && e.target.getAttribute('data-f'); if (f === 'moveMonth' || f === 'reasonCode') { S[f] = e.target.value; save(); refreshCta(); } });
+  app.addEventListener('change', function (e) {
+    var sv = e.target.getAttribute && e.target.getAttribute('data-sel');
+    if (sv) { S[sv] = e.target.value; if (sv === 'fcR') S.fcD = 'all'; save(); return render(); }
+    var f = e.target.getAttribute && e.target.getAttribute('data-f'); if (f === 'moveMonth' || f === 'reasonCode') { S[f] = e.target.value; save(); refreshCta(); } });
   app.addEventListener('keydown', function (e) { if (e.key === 'Enter' && e.target.tagName === 'INPUT' && S.step <= 2 && !S.sheet) { e.preventDefault(); primary(); } });
 
   /* ---------- 시작 ---------- */

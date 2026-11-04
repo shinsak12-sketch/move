@@ -48,7 +48,7 @@ export default handler(['POST'], async (req, res) => {
             RETURNING calc_count`;
   await audit('calc', t.sub);
 
-  const list = await sql`SELECT o.code, o.dept, o.name, d.km::float AS km, d.min FROM orgs o
+  const list = await sql`SELECT o.code, o.kind, o.region, o.dept, o.name, d.km::float AS km, d.min FROM orgs o
                          LEFT JOIN distances d ON d.site_id = o.site_id AND d.roster_id = ${t.sub}
                          ORDER BY d.km NULLS LAST, o.sort, o.code`;
   send(res, 200, { list, failed: sites.length - ids.length, houseKm: st.houseKm, calcAt: new Date().toISOString(), calcCount: up[0].calc_count, calcLimit: CALC_LIMIT });

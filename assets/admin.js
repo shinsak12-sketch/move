@@ -133,11 +133,11 @@
   function vOrgs() {
     var o = A.orgs;
     var h = '<div class="row" style="justify-content:space-between"><h1>조직 주소</h1><span class="row"><button class="btn" type="button" data-act="orgTemplate">양식 내려받기</button><label class="btn pri" style="display:inline-flex;align-items:center">' + (A.busy ? '좌표 변환 중…' : '엑셀 업로드') + '<input type="file" id="of" accept=".xlsx,.xls,.csv" style="display:none"></label></span></div>' +
-      '<div class="muted">머리글: <b>조직코드</b>, <b>부서</b>, <b>센터명</b>, <b>주소</b> · 올리면 기존 조직 목록을 통째로 바꿈 · 주소는 층 · 호수 · 건물명을 떼고 <b>도로명 + 건물번호</b>까지만 써서, 같은 건물(층만 다른 경우 포함)은 한 위치로 묶어 거리를 한 번만 계산함</div>';
+      '<div class="muted">머리글: <b>조직코드</b>, <b>구분</b>(부서/센터), <b>권역</b>(수도권/지방), <b>부서</b>, <b>센터명</b>, <b>주소</b> · 올리면 기존 조직 목록을 통째로 바꿈 · 주소는 층 · 호수 · 건물명을 떼고 <b>도로명 + 건물번호</b>까지만 써서, 같은 건물(층만 다른 경우 포함)은 한 위치로 묶어 거리를 한 번만 계산함</div>';
     if (!o) return h + '<div class="card muted">불러오는 중…</div>';
     h += '<div class="card row" style="gap:26px"><span>조직 <b>' + o.list.length + '곳</b></span><span>실제 위치 <b>' + o.sites + '곳</b></span>' + (o.failed.length ? '<span class="bad">좌표 실패 ' + o.failed.length + '곳: ' + esc(o.failed.join(', ')) + ' — 주소를 고쳐 다시 올릴 것</span>' : '<span class="ok">✓ 좌표 변환 완료</span>') + '</div>';
-    return h + '<div class="card" style="padding:0"><div class="tbox" style="border:0"><table class="t"><thead><tr><th>조직코드</th><th>부서</th><th>센터</th><th>원본 주소</th><th>계산 위치</th><th>같은 위치</th><th>좌표</th></tr></thead><tbody>' +
-      o.list.map(function (x) { return '<tr><td>' + esc(x.code) + '</td><td>' + esc(x.dept) + '</td><td><b>' + esc(x.name) + '</b></td><td class="muted">' + esc(x.addr_raw || '') + '</td><td>' + esc(x.addr) + '</td><td class="muted">' + (x.same_n > 1 ? x.same_n + '곳 공유' : '') + '</td><td>' + (x.geo_ok ? '<span class="ok">✓</span>' : '<span class="bad">실패</span>') + '</td></tr>'; }).join('') + '</tbody></table></div></div>';
+    return h + '<div class="card" style="padding:0"><div class="tbox" style="border:0"><table class="t"><thead><tr><th>조직코드</th><th>구분</th><th>권역</th><th>부서</th><th>이름</th><th>원본 주소</th><th>계산 위치</th><th>같은 위치</th><th>좌표</th></tr></thead><tbody>' +
+      o.list.map(function (x) { return '<tr><td>' + esc(x.code) + '</td><td>' + esc(x.kind) + '</td><td>' + esc(x.region || '') + '</td><td>' + esc(x.dept) + '</td><td><b>' + esc(x.name) + '</b></td><td class="muted">' + esc(x.addr_raw || '') + '</td><td>' + esc(x.addr) + '</td><td class="muted">' + (x.same_n > 1 ? x.same_n + '곳 공유' : '') + '</td><td>' + (x.geo_ok ? '<span class="ok">✓</span>' : '<span class="bad">실패</span>') + '</td></tr>'; }).join('') + '</tbody></table></div></div>';
   }
   function vExport() {
     return '<h1>내려받기</h1><div class="card" style="display:flex;flex-direction:column;gap:12px"><b style="font-size:15px">보안망 반입용 엑셀</b>' +
@@ -197,9 +197,9 @@
     var stName = function (r) { return !r ? '미접속' : r.status === 'submitted' ? '제출' : r.status === 'reopened' ? '재작성 허용' : '작성 중'; };
     var oname = function (c) { return c && byCode[c] ? byCode[c].name : ''; };
     var info = [['항목', '값'], ['생성일시', fmt(x.at)], ['거리 기준', '네이버 길찾기 ' + x.option + ' (현 거주지 기준)'], ['사택 기준', K + 'km 이상'], ['동의서 버전', x.consentVersion], ['형식버전', 1], ['인원', x.roster.length]];
-    var org = [['조직코드', '부서', '센터명', '원본 주소', '계산 위치']].concat(orgs.map(function (o) { return [o.code, o.dept, o.name, o.addr_raw || '', o.addr]; }));
+    var org = [['조직코드', '구분', '권역', '부서', '이름', '원본 주소', '계산 위치']].concat(orgs.map(function (o) { return [o.code, o.kind, o.region || '', o.dept, o.name, o.addr_raw || '', o.addr]; }));
     var ans = [['본부', '부서', '센터', '이름', '생년월일', '상태', '제출일시', '현 주소', '현 주소 상세', '지번', '우편번호', '2025 주소 변경', '이전 주소', '이전 주소 상세', '이사 예정', '이사 예정월', '이사 예정지(동)', '발령 기준지로', '발령 희망', '사유 구분', '사유', '희망 1순위', '희망 2순위', '희망 3순위', '거리 산출일시', '가장 가까운 센터', '최단 거리(km)', '사택 대상 수']];
-    var dHead = ['본부', '부서', '센터', '이름', '생년월일'].concat(orgs.map(function (o) { return o.name + ' (' + o.code + ')'; }));
+    var dHead = ['본부', '부서', '센터', '이름', '생년월일'].concat(orgs.map(function (o) { return (o.kind === '부서' ? '[부서] ' : '') + o.name + ' (' + o.code + ')'; }));
     var dK = [dHead], dM = [dHead], house = [['본부', '부서', '센터', '이름', '생년월일', '조직코드', '대상 센터명', '거리(km)', '소요(분)']], pend = [['본부', '부서', '센터', '이름', '생년월일', '상태']];
     x.roster.forEach(function (r, i) {
       var id = ids[i] || {}, s = resp[r.id], p = pays[i] || {}, dm = dist[r.id] || {};
@@ -249,8 +249,8 @@
     }
     if (a === 'export') return doExport();
     if (a === 'orgTemplate') {
-      var wb1 = XLSX.utils.book_new(), ws1 = XLSX.utils.aoa_to_sheet([['조직코드', '부서', '센터명', '주소'], ['1001', '강북부서', '강북1센터', '서울특별시 노원구 노해로 000'], ['1002', '강북부서', '강북2센터', '서울특별시 노원구 노해로 000 (1센터와 같은 건물이면 주소를 똑같이)']]);
-      ws1['!cols'] = [{ wch: 10 }, { wch: 14 }, { wch: 14 }, { wch: 48 }];
+      var wb1 = XLSX.utils.book_new(), ws1 = XLSX.utils.aoa_to_sheet([['조직코드', '구분', '권역', '부서', '센터명', '주소'], ['5021', '부서', '수도권', '강북부', '강북부', '서울특별시 동대문구 장안동 415-12'], ['5021-01', '센터', '수도권', '강북부', '의정부보상센터', '경기도 의정부시 둔야로17번길 34 (층 · 호수는 있어도 됨)']]);
+      ws1['!cols'] = [{ wch: 10 }, { wch: 6 }, { wch: 8 }, { wch: 14 }, { wch: 18 }, { wch: 48 }];
       XLSX.utils.book_append_sheet(wb1, ws1, '조직'); XLSX.writeFile(wb1, '조직주소_양식.xlsx'); return;
     }
     if (a === 'template') {
@@ -300,7 +300,7 @@
     }
     if (e.target.id === 'of') {
       readSheet(f).then(function (rows) {
-        var list = rows.map(function (r) { return { code: String(pick(r, ['조직코드', '코드', 'code'])).trim(), dept: String(pick(r, ['부서', 'dept'])).trim(), name: String(pick(r, ['센터명', '센터', '조직명', 'name'])).trim(), addr: String(pick(r, ['주소', 'addr'])).trim() }; })
+        var list = rows.map(function (r) { return { kind: String(pick(r, ['구분', 'kind'])).trim(), region: String(pick(r, ['권역', '수도/지방', 'region'])).trim(), code: String(pick(r, ['조직코드', '코드', 'code'])).trim(), dept: String(pick(r, ['부서', 'dept'])).trim(), name: String(pick(r, ['센터명', '센터', '조직명', 'name'])).trim(), addr: String(pick(r, ['주소', 'addr'])).trim() }; })
           .filter(function (r) { return r.code || r.name || r.addr; });
         A.busy = true; var my = ++orgSeq; render();
         return api('admin/orgs', { rows: list }).then(function (o) { A.busy = false; if (my === orgSeq) A.orgs = o; toast('조직 ' + o.list.length + '곳 등록 · 위치 ' + o.sites + '곳'); render(); });

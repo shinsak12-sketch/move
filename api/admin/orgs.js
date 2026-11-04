@@ -15,10 +15,13 @@ export default handler(['GET', 'POST'], async (req, res) => {
     const clean = [], bad = [], seen = {};
     rows.forEach((r, i) => {
       const code = String(r.code || '').trim(), dept = String(r.dept || '').trim(), name = String(r.name || '').trim(), addr = String(r.addr || '').trim();
+      // 구분: 부서 · 본부 · 본점 → '부서', 그 밖은 '센터' / 권역: 수도권 · 지방
+      const kind = /부서|본부|본점/.test(String(r.kind || '')) ? '부서' : '센터';
+      const region = /지방/.test(String(r.region || '')) ? '지방' : /수도/.test(String(r.region || '')) ? '수도권' : null;
       if (!code || !dept || !name || !addr || seen[code]) { bad.push(i + 2); return; }
       seen[code] = 1;
       const b = baseAddr(addr);
-      clean.push({ code, dept, name, addr, base: b.base, an: b.key, sort: i });
+      clean.push({ code, dept, name, addr, base: b.base, an: b.key, sort: i, kind, region });
     });
     if (bad.length) return fail(res, 400, '조직 목록 확인 필요 (빈 칸 또는 코드 중복)', { badRows: bad.slice(0, 50) });
 
@@ -36,13 +39,14 @@ export default handler(['GET', 'POST'], async (req, res) => {
     }
     const idOf = {}; sites.forEach(s => { idOf[s.addr_norm] = s.id; });
     await sql`DELETE FROM orgs`;
-    await sql`INSERT INTO orgs (code, dept, name, site_id, sort, addr_raw)
-              SELECT c, d, n, s, o, r FROM UNNEST(${clean.map(o => o.code)}::text[], ${clean.map(o => o.dept)}::text[], ${clean.map(o => o.name)}::text[],
-                                               ${clean.map(o => idOf[o.an])}::int[], ${clean.map(o => o.sort)}::int[], ${clean.map(o => o.addr)}::text[]) AS x(c, d, n, s, o, r)`;
+    await sql`INSERT INTO orgs (code, dept, name, site_id, sort, addr_raw, kind, region)
+              SELECT c, d, n, s, o, r, k, g FROM UNNEST(${clean.map(o => o.code)}::text[], ${clean.map(o => o.dept)}::text[], ${clean.map(o => o.name)}::text[],
+                                               ${clean.map(o => idOf[o.an])}::int[], ${clean.map(o => o.sort)}::int[], ${clean.map(o => o.addr)}::text[],
+                                               ${clean.map(o => o.kind)}::text[], ${clean.map(o => o.region)}::text[]) AS x(c, d, n, s, o, r, k, g)`;
     await audit('orgs_upload');
   }
 
-  const list = await sql`SELECT o.code, o.dept, o.name, o.addr_raw, s.addr, s.geo_ok, o.site_id,
+  const list = await sql`SELECT o.code, o.kind, o.region, o.dept, o.name, o.addr_raw, s.addr, s.geo_ok, o.site_id,
                                 (SELECT COUNT(*)::int FROM orgs o2 WHERE o2.site_id = o.site_id) AS same_n
                          FROM orgs o LEFT JOIN org_sites s ON s.id = o.site_id ORDER BY o.sort, o.code`;
   const sitesN = new Set(list.map(o => o.site_id)).size;
