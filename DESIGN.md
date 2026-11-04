@@ -102,7 +102,7 @@
 ### 4-2. 기타
 - HTTPS만 허용. 본인 확인 · 비번 5회 틀리면 잠금(관리자 초기화). 요청 횟수 제한.
 - 관리자 비번은 bcrypt로 저장하고 세션은 짧게 둠.
-- Vercel 환경변수: `DATABASE_URL`, `HMAC_SECRET`, `PUBLIC_KEY`, `KAKAO_REST_KEY`, `NAVER_CLIENT_ID`, `NAVER_CLIENT_SECRET`, `ADMIN_*`, `JWT_SECRET`
+- Vercel 환경변수: `DATABASE_URL`, `HMAC_SECRET`, `PUBLIC_KEY`, `NAVER_CLIENT_ID`, `NAVER_CLIENT_SECRET`, `ADMIN_*`, `TOKEN_SECRET`
 
 ### 4-3. 동의서에 들어갈 내용 (초안 항목)
 1. 수집 항목: 성명, 생년월일, 현 거주지 주소, 2025년 주소(변경 시), 이사 예정월 · 예정지(동 단위), 발령 희망 여부 · 사유 · 희망 센터

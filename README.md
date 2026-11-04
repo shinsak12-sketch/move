@@ -1,6 +1,6 @@
 # 거주지 · 발령 희망 조사 (주소 취합 사이트)
 
-직원이 휴대폰으로 거주지 주소와 발령 희망을 입력함. 서버가 전국 센터까지의 자동차 경로 거리를 계산함(네이버 최적 경로). 결과는 엑셀로 받아 회사 보안망으로 옮김. 설계는 `DESIGN.md` 참고.
+직원이 휴대폰으로 거주지 주소와 발령 희망을 입력함. 서버가 전국 센터까지의 자동차 경로 거리를 계산함(네이버 최적 경로). 주소 검색창은 카카오(다음) 우편번호 서비스(키 없음), 좌표 변환과 거리는 네이버 클라우드 Maps 키 하나로 처리함. 결과는 엑셀로 받아 회사 보안망으로 옮김. 설계는 `DESIGN.md` 참고.
 
 - 직원 화면: `/`
 - 관리자 화면: `/admin.html`
@@ -13,7 +13,7 @@
 | `assets/xlsx.full.min.js` | 엑셀 읽기/쓰기 (SheetJS 0.18.5, Apache-2.0) |
 | `api/*.js` | Vercel 함수 (직원) — login · consent · password · public · me · calc · submit |
 | `api/admin/*.js` | Vercel 함수 (관리자) — login · status · roster · orgs · account · export · settings · wipe |
-| `lib/` | DB(Neon) · 보안(HMAC · 공개키 암호화 · 토큰) · 카카오/네이버 호출 · 설정 |
+| `lib/` | DB(Neon) · 보안(HMAC · 공개키 암호화 · 토큰) · 네이버 호출(좌표 · 거리) · 설정 |
 
 DB 표는 첫 요청 때 자동으로 만들어짐(`lib/db.js`).
 
@@ -40,9 +40,8 @@ DB 표는 첫 요청 때 자동으로 만들어짐(`lib/db.js`).
    | `HMAC_SECRET` | 긴 임의 문자열 (예: `openssl rand -hex 32`). **조사 중 바꾸면 로그인이 안 됨** |
    | `TOKEN_SECRET` | 긴 임의 문자열 (선택. 없으면 HMAC_SECRET에서 만듦) |
    | `ADMIN_ID` · `ADMIN_PASSWORD` | 관리자 계정 1개 |
-   | `KAKAO_REST_KEY` | 카카오 개발자 › 앱 › REST API 키 (로컬 API 사용) |
-   | `NAVER_CLIENT_ID` · `NAVER_CLIENT_SECRET` | 네이버 클라우드 Maps › Directions 5 인증키 |
-   | `NAVER_DIRECTIONS_URL` | (선택) 기본값 `https://maps.apigw.ntruss.com/map-direction/v1/driving` |
+   | `NAVER_CLIENT_ID` · `NAVER_CLIENT_SECRET` | 네이버 클라우드 Maps 인증키 (**Geocoding + Directions 5** 둘 다 이용 신청). HR노트 사택 신청과 같은 키 써도 됨 |
+   | `NAVER_GEOCODE_URL` · `NAVER_DIRECTIONS_URL` | (선택) 기본값 `https://maps.apigw.ntruss.com/map-geocode/v2/geocode` · `…/map-direction/v1/driving` |
    | `PUBLIC_KEY` | 4번에서 만든 공개키 |
 
 4. **키 만들기**: 배포 후 `/admin.html` 로그인 › **키 관리** › 키 비밀번호 입력 › [키 만들기]
