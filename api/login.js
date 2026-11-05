@@ -26,7 +26,7 @@ export default handler(['POST'], async (req, res) => {
   if (!u.pw_hash) {
     if (!st.open) return fail(res, 403, '지금은 접수 기간이 아님.');
     const stage = u.consent_version === st.consentVersion ? 'password' : 'consent';
-    return send(res, 200, { stage, token: sign({ sub: u.id, scope: 'setup' }, 30) });
+    return send(res, 200, { stage, token: sign({ sub: u.id, scope: 'setup' }, 15) });
   }
   if (!pw) return send(res, 200, { stage: 'password_required' });
 
@@ -42,5 +42,5 @@ export default handler(['POST'], async (req, res) => {
   if (u.status === 'submitted') return send(res, 200, { stage: 'submitted', submittedAt: u.submitted_at, contact: CONTACT });
   if (!st.open) return fail(res, 403, '지금은 접수 기간이 아님.');
   const needConsent = u.consent_version !== st.consentVersion;
-  return send(res, 200, { stage: needConsent ? 'consent' : 'survey', token: sign({ sub: u.id, scope: 'emp' }, 120) });
+  return send(res, 200, { stage: needConsent ? 'consent' : 'survey', token: sign({ sub: u.id, scope: 'emp' }, 60) });
 });

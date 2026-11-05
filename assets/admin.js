@@ -3,7 +3,7 @@
 (function () {
   'use strict';
   var root = document.getElementById('admin');
-  var A = { token: sessionStorage.getItem('addr-admin.token') || '', view: 'dash', key: null, status: null, names: {}, filter: 'pending', q: '', orgs: null, settings: null, roster: null, add: { hq: '', dept: '', center: '', name: '', birth: '' }, addList: [], busy: false, pub: '' };
+  var A = { token: sessionStorage.getItem('addr-admin.token') || '', otpOn: !!sessionStorage.getItem('addr-admin.otp'), otp: null, view: 'dash', key: null, status: null, names: {}, filter: 'pending', q: '', orgs: null, settings: null, roster: null, add: { hq: '', dept: '', center: '', name: '', birth: '' }, addList: [], busy: false, pub: '' };
   var NAV = [['dash', '진행 현황'], ['roster', '명단'], ['orgs', '조직 주소'], ['export', '내려받기'], ['settings', '설정'], ['key', '키 관리'], ['wipe', '전체 파기']];
 
   function esc(v) { return String(v == null ? '' : v).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
@@ -84,7 +84,7 @@
 
   /* ---------- 화면 ---------- */
   function vLogin() {
-    return '<form class="login" id="lf"><b style="font-size:18px">주소 취합 관리</b><label class="muted" for="aid">아이디</label><input id="aid" class="inp" autocomplete="username"><label class="muted" for="apw">비밀번호</label><input id="apw" class="inp" type="password" autocomplete="current-password"><button class="btn pri" type="submit">로그인</button></form>';
+    return '<form class="login" id="lf"><b style="font-size:18px">주소 취합 관리</b><label class="muted" for="aid">아이디</label><input id="aid" class="inp" autocomplete="username"><label class="muted" for="apw">비밀번호</label><input id="apw" class="inp" type="password" autocomplete="current-password"><label class="muted" for="aotp">Google OTP 6자리</label><input id="aotp" class="inp" inputmode="numeric" maxlength="6" autocomplete="one-time-code" placeholder="OTP 등록 전이면 비워 둠"><button class="btn pri" type="submit">로그인</button></form>';
   }
   function keyBox() {
     if (A.key) return '';
@@ -176,8 +176,19 @@
       '<div><b style="font-size:14px">개인정보 동의서</b> <span class="muted">현재 v' + s.consentVersion + ' · 고치면 버전이 올라가고 직원은 다음 접속 때 다시 동의함</span><textarea class="ta" id="sConsent">' + esc(s.consentText) + '</textarea></div>' +
       '<div><button class="btn pri" type="button" data-act="saveSettings">저장</button></div></div>';
   }
+  function otpCard() {
+    var o = A.otp, h = '<div class="card" style="display:flex;flex-direction:column;gap:12px;margin-bottom:16px"><b style="font-size:15px">관리자 2차 인증 (Google OTP)</b>';
+    if (A.otpOn) return h + '<div class="ok">✓ 켜져 있음 — 로그인할 때마다 OTP 6자리가 필요함</div><div class="muted">휴대폰을 바꾸거나 잃어버리면: Vercel 환경변수 ADMIN_TOTP_SECRET 을 지우고 다시 배포 → 여기서 새로 등록</div></div>';
+    if (!o) return h + '<div class="muted">켜면 아이디 · 비밀번호가 새도 휴대폰 없이는 관리자 화면에 못 들어옴</div><div><button class="btn pri" type="button" data-act="otpStart">등록 시작</button></div></div>';
+    h += '<div class="muted">① 휴대폰 <b>Google Authenticator</b> 앱 → [+] → QR 코드 스캔 (안 되면 설정 키 직접 입력)</div>' +
+      '<div class="row" style="gap:18px;align-items:flex-start;flex-wrap:wrap"><div style="width:180px;height:180px;background:#fff;border:1px solid #E5E7EB;border-radius:10px;padding:6px">' + o.svg + '</div>' +
+      '<div style="display:flex;flex-direction:column;gap:8px;flex:1 1 260px"><span class="muted">설정 키</span><div class="pem" id="otpsec" style="letter-spacing:1px">' + esc(o.secret.replace(/(.{4})/g, '$1 ').trim()) + '</div>' +
+      '<span class="muted">② 앱에 뜬 6자리로 확인</span><div class="row"><input class="inp" id="otpchk" inputmode="numeric" maxlength="6" placeholder="6자리" style="width:120px"><button class="btn" type="button" data-act="otpCheck">확인</button>' + (o.ok ? ' <b class="ok">✓ 맞음</b>' : '') + '</div></div></div>';
+    if (o.ok) h += '<div class="muted" style="color:#111827">③ Vercel → 프로젝트 → Settings → Environment Variables 에 <b>ADMIN_TOTP_SECRET</b> = 아래 값 (Sensitive 체크) → <b>Redeploy</b><br>④ 다시 배포된 뒤부터 로그인할 때 OTP 필수. 이 화면을 벗어나면 값이 사라지니 먼저 넣을 것</div><div class="pem">' + esc(o.secret) + '</div><div><button class="btn sm" type="button" data-act="otpCopy">값 복사</button></div>';
+    return h + '</div>';
+  }
   function vKey() {
-    return '<h1>키 관리</h1><div class="card" style="display:flex;flex-direction:column;gap:12px"><b style="font-size:15px">처음 한 번: 키 만들기</b>' +
+    return '<h1>키 관리</h1>' + otpCard() + '<div class="card" style="display:flex;flex-direction:column;gap:12px"><b style="font-size:15px">처음 한 번: 키 만들기</b>' +
       '<div class="muted">① 키 비밀번호를 정하고 [키 만들기] → 개인키 파일이 내려받아짐 (담당자만 보관 · 잃어버리면 자료를 못 엶)<br>② 아래 공개키를 Vercel 환경변수 <b>ENC_PUBLIC_KEY</b> 에 넣고 다시 배포<br>③ 그다음 명단을 올릴 것 (키를 바꾸면 이전 자료는 열 수 없음)</div>' +
       '<div class="row"><input class="inp" id="kp1" type="password" placeholder="키 비밀번호 (8자 이상)" autocomplete="new-password"><input class="inp" id="kp2" type="password" placeholder="한 번 더" autocomplete="new-password"><button class="btn pri" type="button" data-act="genKey">키 만들기</button></div>' +
       (A.pub ? '<b style="font-size:13.5px">공개키 (ENC_PUBLIC_KEY 값)</b><div class="pem" id="pubpem">' + esc(A.pub) + '</div><div><button class="btn sm" type="button" data-act="copyPub">공개키 복사</button></div>' : '') +
@@ -192,6 +203,7 @@
   function render() {
     if (!A.token) { root.innerHTML = vLogin(); return; }
     var body = { dash: vDash, roster: vRoster, orgs: vOrgs, export: vExport, settings: vSettings, key: vKey, wipe: vWipe }[A.view]();
+    if (!A.otpOn) body = '<div class="card" style="border-color:#F59E0B;background:#FFFBEB;margin-bottom:14px"><b style="color:#92400E">관리자 2차 인증(Google OTP)이 아직 꺼져 있음</b> · <button class="btn sm" type="button" data-nav="key">[키 관리]에서 등록</button></div>' + body;
     root.innerHTML = '<div class="wrap"><nav class="nav" aria-label="관리 메뉴"><div style="padding:4px 12px 18px"><b style="font-size:15px">주소 취합 관리</b><div class="muted">접수 ' + (A.status ? (A.status.settings.open ? '<b class="ok">열림</b>' : '<b class="bad">닫힘</b>') : '') + '</div></div>' +
       NAV.map(function (n) { return '<button class="ni' + (A.view === n[0] ? ' on' : '') + (n[0] === 'wipe' ? ' danger' : '') + '" type="button" data-nav="' + n[0] + '">' + n[1] + '</button>'; }).join('') +
       '<div style="margin-top:auto;padding:12px;border-radius:10px;background:#F9FAFB" class="muted">개인키 <b style="color:#111827">' + (A.key ? '불러옴' : '안 불러옴') + '</b><br><button class="btn sm" type="button" data-act="logout" style="margin-top:8px">로그아웃</button></div></nav><main class="main">' + body + '</main></div>';
@@ -251,14 +263,14 @@
   /* ---------- 이벤트 ---------- */
   root.addEventListener('submit', function (e) {
     if (e.target.id !== 'lf') return; e.preventDefault();
-    api('admin/login', { id: document.getElementById('aid').value, password: document.getElementById('apw').value }).then(function (r) { A.token = r.token; sessionStorage.setItem('addr-admin.token', r.token); setView('dash'); }).catch(fail);
+    api('admin/login', { id: document.getElementById('aid').value, password: document.getElementById('apw').value, otp: document.getElementById('aotp').value }).then(function (r) { A.token = r.token; A.otpOn = !!r.otp; sessionStorage.setItem('addr-admin.token', r.token); sessionStorage.setItem('addr-admin.otp', r.otp ? '1' : ''); setView('dash'); }).catch(fail);
   });
   root.addEventListener('click', function (e) {
     var n = e.target.closest('[data-nav]'); if (n) return setView(n.getAttribute('data-nav'));
     var t = e.target.closest('[data-act]'); if (!t || t.disabled) return;
     var a = t.getAttribute('data-act'), k = t.getAttribute('data-k');
     if (a === 'reload') return loadStatus();
-    if (a === 'logout') { A.token = ''; A.key = null; A.names = {}; sessionStorage.removeItem('addr-admin.token'); return render(); }
+    if (a === 'logout') { A.token = ''; A.key = null; A.names = {}; A.otp = null; sessionStorage.removeItem('addr-admin.otp'); sessionStorage.removeItem('addr-admin.token'); return render(); }
     if (a === 'filter') { A.filter = k; return render(); }
     if (a === 'copy') {
       var list = A.status.rows.filter(function (r) { return stOf(r) !== 'done'; }).map(function (r) { var p = A.names[r.id] || {}; return [r.hq || '', r.dept || '', r.center || '', p.name, p.birth, ST[stOf(r)][0]].join('\t'); });
@@ -269,6 +281,9 @@
       if (!confirm(label + '할까요?')) return;
       return api('admin/account', { id: Number(t.getAttribute('data-id')), action: k }).then(function () { toast('처리했음'); loadStatus(); }).catch(fail);
     }
+    if (a === 'otpStart') return api('admin/otp').then(function (r) { if (r.enabled) { A.otpOn = true; sessionStorage.setItem('addr-admin.otp', '1'); } else A.otp = r; render(); }).catch(fail);
+    if (a === 'otpCheck') return api('admin/otp', { secret: A.otp.secret, otp: document.getElementById('otpchk').value }).then(function (r) { A.otp.ok = r.ok; if (!r.ok) toast('코드가 맞지 않음 — 휴대폰 시간이 맞는지 확인', true); render(); }).catch(fail);
+    if (a === 'otpCopy') { navigator.clipboard.writeText(A.otp.secret).then(function () { toast('복사했음'); }); return; }
     if (a === 'addPut') {
       var f = A.add; f.name = document.getElementById('an').value.trim(); f.birth = document.getElementById('ab').value.trim();
       var b6 = birth6(f.birth);

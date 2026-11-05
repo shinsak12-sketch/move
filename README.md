@@ -41,7 +41,9 @@ DB 표는 첫 요청 때 자동으로 만들어짐(`lib/db.js`).
    | `DATABASE_URL` | Neon 연결 문자열 |
    | `HMAC_SECRET` | 긴 임의 문자열 (예: `openssl rand -hex 32`). **조사 중 바꾸면 로그인이 안 됨** |
    | `TOKEN_SECRET` | 긴 임의 문자열 (선택. 없으면 HMAC_SECRET에서 만듦) |
-   | `ADMIN_ID` · `ADMIN_PASSWORD` | 관리자 계정 1개 |
+   | `ADMIN_ID` · `ADMIN_PASSWORD` | 관리자 계정 1개 (비밀번호는 16자 이상 무작위 권장) |
+   | `ADMIN_TOTP_SECRET` | 관리자 Google OTP 비밀값. 관리자 화면 [키 관리]에서 등록하면 나오는 값. 넣고 재배포하면 OTP 필수 |
+   | `DIST_SECRET` | 거리값 암호화 키 (선택. 없으면 HMAC_SECRET에서 만듦). **조사 중 바꾸면 저장된 거리를 못 읽음** |
    | `NAVER_CLIENT_ID` · `NAVER_CLIENT_SECRET` | 네이버 클라우드 Maps 인증키 (**Geocoding + Directions 5** 둘 다 이용 신청). HR노트 사택 신청과 같은 키 써도 됨 |
    | `NAVER_GEOCODE_URL` · `NAVER_DIRECTIONS_URL` | (선택) 기본값 `https://maps.apigw.ntruss.com/map-geocode/v2/geocode` · `…/map-direction/v1/driving` |
    | `ENC_PUBLIC_KEY` (또는 `PUBLIC_KEY`) | 4번에서 만든 공개키. `PUBLIC_KEY` 이름은 Vercel 이 Sensitive 로 못 저장하니 `ENC_PUBLIC_KEY` 추천 |

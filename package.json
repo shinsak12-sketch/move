@@ -4,9 +4,12 @@
   "private": true,
   "type": "module",
   "description": "직원 거주지 주소 취합 + 전국 센터 거리 산출",
-  "engines": { "node": ">=20" },
+  "engines": {
+    "node": ">=20"
+  },
   "dependencies": {
     "@neondatabase/serverless": "^1.0.0",
-    "bcryptjs": "^2.4.3"
+    "bcryptjs": "^2.4.3",
+    "qrcode": "^1.5.4"
   }
 }

@@ -20,5 +20,5 @@ export default handler(['POST'], async (req, res) => {
   const hash = await bcrypt.hash(pw, 10);
   await db()`UPDATE roster SET pw_hash = ${hash}, fail_count = 0, last_login = NOW() WHERE id = ${t.sub}`;
   await audit('password_set', t.sub);
-  send(res, 200, { token: sign({ sub: t.sub, scope: 'emp' }, 120) });
+  send(res, 200, { token: sign({ sub: t.sub, scope: 'emp' }, 60) });
 });

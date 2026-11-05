@@ -1,23 +1,53 @@
 {
   "functions": {
-    "api/calc.js": { "maxDuration": 60 },
-    "api/admin/orgs.js": { "maxDuration": 60 }
+    "api/calc.js": {
+      "maxDuration": 60
+    },
+    "api/admin/orgs.js": {
+      "maxDuration": 60
+    }
   },
-  "regions": ["icn1"],
+  "regions": [
+    "icn1"
+  ],
   "headers": [
     {
       "source": "/(.*)",
       "headers": [
-        { "key": "X-Content-Type-Options", "value": "nosniff" },
-        { "key": "Referrer-Policy", "value": "no-referrer" },
-        { "key": "X-Frame-Options", "value": "DENY" },
-        { "key": "Permissions-Policy", "value": "camera=(), microphone=(), geolocation=()" },
-        { "key": "Strict-Transport-Security", "value": "max-age=31536000" }
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
+        },
+        {
+          "key": "Referrer-Policy",
+          "value": "no-referrer"
+        },
+        {
+          "key": "X-Frame-Options",
+          "value": "DENY"
+        },
+        {
+          "key": "Permissions-Policy",
+          "value": "camera=(), microphone=(), geolocation=()"
+        },
+        {
+          "key": "Strict-Transport-Security",
+          "value": "max-age=31536000; includeSubDomains"
+        },
+        {
+          "key": "Content-Security-Policy",
+          "value": "default-src 'self'; script-src 'self' https://*.daumcdn.net https://*.kakaocdn.net https://*.daum.net https://*.kakao.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https://*.daumcdn.net https://*.kakaocdn.net https://*.daum.net https://*.kakao.com; frame-src https://*.daumcdn.net https://*.kakaocdn.net https://*.daum.net https://*.kakao.com; connect-src 'self' https://*.daumcdn.net https://*.kakaocdn.net https://*.daum.net https://*.kakao.com; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'"
+        }
       ]
     },
     {
       "source": "/api/(.*)",
-      "headers": [{ "key": "Cache-Control", "value": "no-store" }]
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "no-store"
+        }
+      ]
     }
   ]
 }

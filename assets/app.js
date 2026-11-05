@@ -159,15 +159,38 @@
       save(); render();
     }).catch(function (e) { S.calc.state = 'idle'; if (e.data && e.data.calcCount != null) S.calcCount = e.data.calcCount; onErr(e); });
   }
+  // 공개키 하이브리드 암호화 (서버 lib/sec.js seal 과 같은 형식) — 개인키 없이는 서버도 못 풂
+  function b64(buf) { var b = new Uint8Array(buf), s = ''; for (var i = 0; i < b.length; i++) s += String.fromCharCode(b[i]); return btoa(s); }
+  function seal(obj, pem) {
+    var der = Uint8Array.from(atob(pem.replace(/-----[^-]+-----/g, '').replace(/\s/g, '')), function (c) { return c.charCodeAt(0); });
+    var iv = crypto.getRandomValues(new Uint8Array(12)), aes;
+    return crypto.subtle.generateKey({ name: 'AES-GCM', length: 256 }, true, ['encrypt']).then(function (k) {
+      aes = k; return crypto.subtle.encrypt({ name: 'AES-GCM', iv: iv }, k, new TextEncoder().encode(JSON.stringify(obj)));
+    }).then(function (ct) {
+      return Promise.all([ct, crypto.subtle.exportKey('raw', aes), crypto.subtle.importKey('spki', der, { name: 'RSA-OAEP', hash: 'SHA-256' }, false, ['encrypt'])]);
+    }).then(function (x) {
+      return crypto.subtle.encrypt({ name: 'RSA-OAEP' }, x[2], x[1]).then(function (k) { return JSON.stringify({ v: 1, k: b64(k), iv: b64(iv), ct: b64(x[0]) }); });
+    });
+  }
   function doSubmit() {
     S.busy = true; S.confirm = false; render();
-    api('submit', { body: {
-      home: { road: S.home.road, jibun: S.home.jibun, zip: S.home.zip },
-      prevChanged: S.prevChanged, prev: S.prevChanged ? { road: S.prev.road, jibun: S.prev.jibun } : null,
-      movePlanned: S.movePlanned, move: S.movePlanned ? { month: S.moveMonth, area: S.moveArea, base: S.moveBase } : null,
-      wishes: S.wishes.filter(function (w) { return w.dept; }).map(function (w) { return { dept: w.dept, centers: w.centers.filter(Boolean) }; }),
-      reasonCode: noWish() ? '' : S.reasonCode, reasonText: noWish() ? '' : S.reasonText.trim()
-    } }).then(function (r) {
+    var load = cfg && cfg.publicKey ? Promise.resolve(cfg) : api('public').then(function (c) { cfg = c; return c; });
+    load.then(function (c) {
+      if (!c.publicKey) throw new Error('암호화 키를 받지 못했음. 다시 로그인해 주세요.');
+      return seal({
+        home: { road: S.home.road, jibun: S.home.jibun, zip: S.home.zip },
+        prev: S.prevChanged ? { road: S.prev.road, jibun: S.prev.jibun } : null,
+        move: S.movePlanned ? { area: S.moveArea } : null,
+        reasonText: noWish() ? '' : S.reasonText.trim()
+      }, c.publicKey);
+    }).then(function (enc) {
+      return api('submit', { body: {
+        road: S.home.road, enc: enc,
+        prevChanged: S.prevChanged, movePlanned: S.movePlanned, moveMonth: S.movePlanned ? S.moveMonth : '', moveBase: S.movePlanned && S.moveBase,
+        wishes: S.wishes.filter(function (w) { return w.dept; }).map(function (w) { return { dept: w.dept, centers: w.centers.filter(Boolean) }; }),
+        reasonCode: noWish() ? '' : S.reasonCode
+      } });
+    }).then(function (r) {
       S.busy = false; S.submittedAt = r.submittedAt; S.contact = r.contact || S.contact; clearAll();
       var keep = { submittedAt: S.submittedAt, contact: S.contact }; S = Object.assign(fresh(), keep, { step: 10 }); render();
     }).catch(onErr);
