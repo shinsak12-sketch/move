@@ -14,7 +14,7 @@ export default handler(['POST'], async (req, res) => {
   const name = String(b.name || '').trim(), birth = String(b.birth || '').trim(), pw = String(b.password || '');
   const ip = ipKey(clientIp(req));
   if (await tooMany(ip, 30, 15)) return fail(res, 429, '시도가 너무 많음. 15분 뒤 다시 시도해 주세요.');
-  if (name.length < 2 || !/^\d{6}$/.test(birth)) return fail(res, 400, '성명과 생년월일 6자리를 확인해 주세요.');
+  if (!name || !/^\d{6}$/.test(birth)) return fail(res, 400, '성명과 생년월일 6자리를 확인해 주세요.');
 
   const st = await getSettings();
   const rows = await sql`SELECT r.*, s.status, s.submitted_at FROM roster r LEFT JOIN responses s ON s.roster_id = r.id WHERE r.key_hmac = ${idKey(name, birth)}`;

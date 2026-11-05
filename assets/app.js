@@ -83,7 +83,7 @@
   /* ---------- 단계 이동 ---------- */
   function valid(s) {
     switch (s) {
-      case 0: return S.name.trim().length >= 2 && /^\d{6}$/.test(S.birth) && (!S.needPw || S.loginPw.length >= 6);
+      case 0: return S.name.trim().length >= 1 && /^\d{6}$/.test(S.birth) && (!S.needPw || S.loginPw.length >= 6);
       case 1: return S.agree.collect && S.agree.overseas && S.agree.entrust;
       case 2: return S.pw1.length >= 6 && S.pw1 === S.pw2;
       case 3: return !!S.home;

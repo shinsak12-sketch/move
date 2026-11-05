@@ -3,7 +3,7 @@
 (function () {
   'use strict';
   var root = document.getElementById('admin');
-  var A = { token: sessionStorage.getItem('addr-admin.token') || '', view: 'dash', key: null, status: null, names: {}, filter: 'pending', q: '', orgs: null, settings: null, roster: null, busy: false, pub: '' };
+  var A = { token: sessionStorage.getItem('addr-admin.token') || '', view: 'dash', key: null, status: null, names: {}, filter: 'pending', q: '', orgs: null, settings: null, roster: null, add: { hq: '', dept: '', center: '', name: '', birth: '' }, addList: [], busy: false, pub: '' };
   var NAV = [['dash', '진행 현황'], ['roster', '명단'], ['orgs', '조직 주소'], ['export', '내려받기'], ['settings', '설정'], ['key', '키 관리'], ['wipe', '전체 파기']];
 
   function esc(v) { return String(v == null ? '' : v).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
@@ -129,10 +129,29 @@
         '<label class="cb"><input type="checkbox" id="rm"> 이 파일에 없는 사람은 서버 명단에서 지움 (응답도 함께 지워짐)</label>' +
         '<div><button class="btn pri" type="button" data-act="uploadRoster"' + (p.bad.length || p.dup.length || A.busy ? ' disabled' : '') + '>' + (A.busy ? '올리는 중…' : '서버에 올리기') + '</button></div>';
     }
-    h += '</div><div class="card" style="display:flex;flex-direction:column;gap:12px;margin-top:16px"><b style="font-size:15px">사람 추가</b><div class="muted">지금 서버 명단은 그대로 두고 아래 사람만 더함 · 같은 이름 + 생년월일이 이미 있으면 본부 · 부서 · 센터만 고쳐짐<br>한 줄에 한 명: <b>본부, 부서, 센터, 이름, 생년월일</b> (쉼표 또는 탭 · 엑셀에서 복사해 붙여넣기도 됨 · 본부 · 부서 · 센터는 비워도 됨)</div>' +
-      '<textarea class="inp" id="addt" rows="6" style="height:auto;padding:10px;font-family:inherit;resize:vertical" placeholder="강북본부, 강북부, 강북1센터, 홍길동, 900101">' + esc(A.addText || '') + '</textarea>' +
-      '<div><button class="btn pri" type="button" data-act="addPeople"' + (A.busy ? ' disabled' : '') + '>' + (A.busy ? '추가 중…' : '명단에 추가') + '</button></div>';
+    h += '</div>' + addCard();
     return h + '<div class="muted">서버에는 성명 · 생년월일이 해시(로그인 확인용)와 암호문(관리자 열람용)으로만 저장됨. <b>먼저 [키 관리]에서 키를 만들고, 공개키를 Vercel 환경변수 ENC_PUBLIC_KEY 에 넣고 다시 배포한 뒤</b> 올려야 함.</div></div>';
+  }
+  function opt(list, cur, first) { return '<option value="">' + first + '</option>' + list.map(function (v) { return '<option' + (v === cur ? ' selected' : '') + '>' + esc(v) + '</option>'; }).join(''); }
+  function uniq(a) { var o = {}; return a.filter(function (v) { if (!v || o[v]) return false; o[v] = 1; return true; }); }
+  function addCard() {
+    var f = A.add, ol = (A.orgs && A.orgs.list) || [], rl = (A.status && A.status.rows) || [];
+    var hqs = uniq(rl.map(function (r) { return r.hq; })).sort();
+    var depts = uniq(ol.filter(function (o) { return o.kind === '부서'; }).map(function (o) { return o.dept; }).concat(rl.map(function (r) { return r.dept; })));
+    var cens = uniq(ol.filter(function (o) { return o.kind === '센터' && (!f.dept || o.dept === f.dept); }).map(function (o) { return o.name; }).concat(rl.filter(function (r) { return !f.dept || r.dept === f.dept; }).map(function (r) { return r.center; })));
+    var ss = 'class="inp" style="flex:1 1 150px;min-width:0"';
+    var h = '<div class="card" style="display:flex;flex-direction:column;gap:12px;margin-top:16px"><b style="font-size:15px">사람 추가</b><div class="muted">지금 서버 명단은 그대로 두고 담은 사람만 더함 · 같은 이름 + 생년월일이 이미 있으면 본부 · 부서 · 센터만 바뀜</div>' +
+      '<div class="row" style="gap:8px;flex-wrap:wrap">' +
+      '<select ' + ss + ' data-add="hq">' + opt(hqs, f.hq, '본부 선택') + '</select>' +
+      '<select ' + ss + ' data-add="dept">' + opt(depts, f.dept, '부서 선택') + '</select>' +
+      '<select ' + ss + ' data-add="center">' + opt(cens, f.center, '센터 선택') + '</select></div>' +
+      '<div class="row" style="gap:8px;flex-wrap:wrap"><input ' + ss + ' id="an" placeholder="이름" value="' + esc(f.name) + '"><input ' + ss + ' id="ab" placeholder="생년월일 6자리 (900101)" inputmode="numeric" maxlength="8" value="' + esc(f.birth) + '"><button class="btn" type="button" data-act="addPut" style="flex:0 0 auto">담기</button></div>';
+    if (A.addList.length) {
+      h += '<div class="tbox"><table class="t"><thead><tr><th>이름</th><th>생년월일</th><th>본부</th><th>부서</th><th>센터</th><th></th></tr></thead><tbody>' + A.addList.map(function (r, i) {
+        return '<tr><td><b>' + esc(r.name) + '</b></td><td>' + r.birth + '</td><td>' + esc(r.hq) + '</td><td>' + esc(r.dept) + '</td><td>' + esc(r.center) + '</td><td style="text-align:right"><button class="btn sm" type="button" data-act="addDel" data-k="' + i + '">빼기</button></td></tr>';
+      }).join('') + '</tbody></table></div>';
+    }
+    return h + '<div><button class="btn pri" type="button" data-act="addPeople"' + (!A.addList.length || A.busy ? ' disabled' : '') + '>' + (A.busy ? '추가 중…' : '명단에 추가 (' + A.addList.length + '명)') + '</button></div></div>';
   }
   function vOrgs() {
     var o = A.orgs;
@@ -182,6 +201,7 @@
     A.view = v; render();
     if (v === 'dash') loadStatus();
     if (v === 'orgs') { var my = ++orgSeq; api('admin/orgs').then(function (o) { if (my === orgSeq) { A.orgs = o; render(); } }).catch(fail); }
+    if (v === 'roster') { if (!A.status) api('admin/status').then(function (x) { A.status = x; render(); }).catch(fail); api('admin/orgs').then(function (o) { A.orgs = o; render(); }).catch(fail); }
     if (v === 'settings') api('admin/settings').then(function (s) { A.settings = s; render(); }).catch(fail);
   }
 
@@ -249,20 +269,19 @@
       if (!confirm(label + '할까요?')) return;
       return api('admin/account', { id: Number(t.getAttribute('data-id')), action: k }).then(function () { toast('처리했음'); loadStatus(); }).catch(fail);
     }
+    if (a === 'addPut') {
+      var f = A.add; f.name = document.getElementById('an').value.trim(); f.birth = document.getElementById('ab').value.trim();
+      var b6 = birth6(f.birth);
+      if (!f.name) return toast('이름을 입력해 주세요', true);
+      if (!/^\d{6}$/.test(b6)) return toast('생년월일 6자리를 확인해 주세요', true);
+      if (A.addList.some(function (r) { return r.name === f.name && r.birth === b6; })) return toast('이미 담은 사람', true);
+      A.addList.push({ hq: f.hq, dept: f.dept, center: f.center, name: f.name, birth: b6 }); f.name = ''; render();
+      var n = document.getElementById('an'); if (n) n.focus(); return;
+    }
+    if (a === 'addDel') { A.addList.splice(Number(k), 1); return render(); }
     if (a === 'addPeople') {
-      var txt = (document.getElementById('addt') || {}).value || ''; A.addText = txt;
-      var rows = [], bad = [];
-      txt.split(/\r?\n/).forEach(function (line, i) {
-        if (!line.trim()) return;
-        var c = line.split(/\t|,/).map(function (x) { return x.trim(); });
-        if (c.length < 5) c = ['', '', ''].slice(0, 5 - c.length).concat(c);
-        var b6 = birth6(c[4]);
-        if (!c[3] || !/^\d{6}$/.test(b6)) bad.push(i + 1); else rows.push({ hq: c[0], dept: c[1], center: c[2], name: c[3], birth: b6 });
-      });
-      if (bad.length) return toast('형식 오류 ' + bad.join(', ') + '번째 줄 — 이름 · 생년월일 확인');
-      if (!rows.length) return toast('추가할 사람을 입력해 주세요');
       A.busy = true; render();
-      return api('admin/roster', { rows: rows, removeMissing: false }).then(function (r) { A.busy = false; A.addText = ''; toast(r.uploaded + '명 추가 · 서버 명단 ' + r.total + '명'); render(); }).catch(function (e) { A.busy = false; fail(e); });
+      return api('admin/roster', { rows: A.addList, removeMissing: false }).then(function (r) { A.busy = false; A.addList = []; toast(r.uploaded + '명 추가 · 서버 명단 ' + r.total + '명'); loadStatus(); }).catch(fail);
     }
     if (a === 'uploadRoster') {
       A.busy = true; render();
@@ -298,8 +317,17 @@
       return api('admin/wipe', { confirm: txt, keepOrgs: document.getElementById('wOrg').checked, keepSettings: document.getElementById('wSet').checked }).then(function () { A.status = null; A.names = {}; toast('파기 완료'); setView('dash'); }).catch(fail);
     }
   });
+  root.addEventListener('keydown', function (e) { if (e.key === 'Enter' && (e.target.id === 'an' || e.target.id === 'ab')) { e.preventDefault(); var b = document.querySelector('[data-act=addPut]'); if (b) b.click(); } });
   root.addEventListener('input', function (e) { if (e.target.id === 'nq') { A.q = e.target.value; var pos = e.target.selectionStart; render(); var q = document.getElementById('nq'); if (q) { q.focus(); q.setSelectionRange(pos, pos); } } });
   root.addEventListener('change', function (e) {
+    var ak = e.target.getAttribute && e.target.getAttribute('data-add');
+    if (ak) {
+      var an = document.getElementById('an'), ab = document.getElementById('ab'); if (an) A.add.name = an.value; if (ab) A.add.birth = ab.value;
+      A.add[ak] = e.target.value;
+      if (ak === 'dept') A.add.center = '';
+      if (ak === 'center' && e.target.value && !A.add.dept) { var o = ((A.orgs && A.orgs.list) || []).filter(function (x) { return x.kind === '센터' && x.name === e.target.value; })[0]; if (o) A.add.dept = o.dept; }
+      return render();
+    }
     var f = e.target.files && e.target.files[0]; if (!f) return;
     if (e.target.id === 'kf') {
       var pass = prompt('개인키 비밀번호'); if (!pass) return;
@@ -312,7 +340,7 @@
           var name = String(pick(r, ['이름', '성명', 'name'])).trim(), b = birth6(pick(r, ['생년월일', '생일', 'birth']));
           var hq = String(pick(r, ['본부', 'hq'])).trim(), dept = String(pick(r, ['부서', '소속', 'dept'])).trim(), center = String(pick(r, ['센터', '센터명', 'center'])).trim();
           if (!name && !b) return;
-          if (name.length < 2 || !/^\d{6}$/.test(b)) { bad.push(i + 2); return; }
+          if (!name || !/^\d{6}$/.test(b)) { bad.push(i + 2); return; }
           var key = name.replace(/\s/g, '') + '|' + b; if (seen[key]) { dup.push(i + 2); return; } seen[key] = 1;
           out.push({ hq: hq, dept: dept, center: center, name: name, birth: b });
         });

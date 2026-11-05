@@ -18,7 +18,7 @@ export default handler(['POST'], async (req, res) => {
   rows.forEach((r, i) => {
     const name = String(r.name || '').trim(), birth = String(r.birth || '').trim();
     const hq = String(r.hq || '').trim().slice(0, 50), dept = String(r.dept || '').trim().slice(0, 50), center = String(r.center || '').trim().slice(0, 50);
-    if (name.length < 2 || !/^\d{6}$/.test(birth)) { bad.push(i + 2); return; }
+    if (!name || !/^\d{6}$/.test(birth)) { bad.push(i + 2); return; }
     const k = idKey(name, birth);
     if (seen[k]) { dup.push(i + 2); return; }
     seen[k] = 1;
