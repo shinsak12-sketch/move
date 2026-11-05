@@ -11,7 +11,7 @@ export default handler(['POST'], async (req, res) => {
   await ensure();
   if (!(await member(t.sub))) return fail(res, 401, '명단에 없거나 잠긴 계정임. 다시 로그인해 주세요.');
   const pw = String(body(req).password || '');
-  if (pw.length < 6 || pw.length > 64) return fail(res, 400, '비밀번호는 6자리 이상으로 해 주세요.');
+  if (pw.length < 6 || pw.length > 64) return fail(res, 400, '비밀번호는 6자 이상으로 해 주세요.');
   const st = await getSettings();
   const r = await db()`SELECT consent_version, pw_hash FROM roster WHERE id = ${t.sub}`;
   if (!r[0]) return fail(res, 401, '다시 로그인해 주세요.');

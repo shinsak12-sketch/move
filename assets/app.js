@@ -241,12 +241,12 @@
   };
   V[2] = function () {
     return '<h1 class="t">비밀번호 만들기</h1><p class="sub">다음에 들어올 때 성명 · 생년월일과 함께 입력함.</p>' +
-      '<div class="fld"><label class="lbl" for="p1">비밀번호</label><input id="p1" class="inp" data-f="pw1" type="password" autocomplete="new-password" placeholder="6자리 이상" value="' + esc(S.pw1) + '"></div>' +
+      '<div class="fld"><label class="lbl" for="p1">비밀번호</label><input id="p1" class="inp" data-f="pw1" type="password" autocomplete="new-password" placeholder="6자 이상 · 길이 제한 없음" value="' + esc(S.pw1) + '"></div>' +
       '<div class="fld"><label class="lbl" for="p2">비밀번호 확인</label><input id="p2" class="inp" data-f="pw2" type="password" autocomplete="new-password" placeholder="한 번 더" value="' + esc(S.pw2) + '"></div>' +
       '<div id="rules" style="display:flex;flex-direction:column;gap:6px">' + rules() + '</div>';
   };
   function rules() {
-    return [[S.pw1.length >= 6, '6자리 이상'], [S.pw1.length > 0 && S.pw1 === S.pw2, '두 번 입력한 비밀번호가 같음']].map(function (r) { return '<div class="rule' + (r[0] ? ' ok' : '') + '">' + (r[0] ? '✓' : '·') + ' ' + r[1] + '</div>'; }).join('');
+    return [[S.pw1.length >= 6, '6자 이상 (더 길어도 됨 · 영문 · 숫자 · 기호 자유)'], [S.pw1.length > 0 && S.pw1 === S.pw2, '두 번 입력한 비밀번호가 같음']].map(function (r) { return '<div class="rule' + (r[0] ? ' ok' : '') + '">' + (r[0] ? '✓' : '·') + ' ' + r[1] + '</div>'; }).join('');
   }
   V[3] = function () {
     var h = '<h1 class="t">지금 사는 곳을<br>알려주세요</h1><p class="sub">거리 계산과 사택 대상 판단에 쓰임.</p>';
