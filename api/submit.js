@@ -22,43 +22,56 @@ export default handler(['POST'], async (req, res) => {
   if (!cur) return fail(res, 400, '거리 산출을 먼저 해 주세요.');
   if (cur.status === 'submitted') return fail(res, 409, '이미 제출했음. 수정은 ' + CONTACT + '에게 연락해 주세요.');
 
+  // 상세주소(동 · 호수)는 받지 않음 — 도로명 주소까지만
   const home = b.home || {};
   const road = s(home.road, 200);
-  if (!road || !s(home.detail, 100)) return fail(res, 400, '현 거주지 주소와 상세주소를 입력해 주세요.');
+  if (!road) return fail(res, 400, '현 거주지 주소를 골라 주세요.');
   if (cur.addr_hash !== addrKey(road)) return fail(res, 409, '주소가 바뀌었음. 거리를 다시 산출해 주세요.');
 
   const prevChanged = !!b.prevChanged;
   const prev = b.prev || {};
-  if (prevChanged && (!s(prev.road, 200) || !s(prev.detail, 100))) return fail(res, 400, '이전 주소를 입력해 주세요.');
+  if (prevChanged && !s(prev.road, 200)) return fail(res, 400, '이전 주소를 골라 주세요.');
 
   const movePlanned = !!b.movePlanned;
   const move = b.move || {};
   if (movePlanned && (!/^\d{4}-\d{2}$/.test(String(move.month || '')) || !s(move.area, 100))) return fail(res, 400, '이사 예정월과 예정지를 입력해 주세요.');
 
-  const wish = b.wish === 'Y' ? 'Y' : b.wish === 'N' ? 'N' : '';
-  if (!wish) return fail(res, 400, '발령 희망 여부를 골라 주세요.');
-  let reasonCode = null, ranks = [null, null, null];
+  // 지망: 1지망 필수(부서 또는 'NONE' = 발령 희망하지 않음), 2 · 3지망 선택, 부서마다 센터 최대 3곳
+  const orgs = await sql`SELECT code, kind, dept FROM orgs`;
+  const byCode = {}; orgs.forEach(o => { byCode[o.code] = o; });
+  const raw = Array.isArray(b.wishes) ? b.wishes.slice(0, 3) : [];
+  if (!raw.length || !raw[0] || !raw[0].dept) return fail(res, 400, '1지망을 골라 주세요.');
+  const wishes = [], usedDept = {};
+  for (let i = 0; i < raw.length; i++) {
+    const w = raw[i] || {}, code = String(w.dept || '');
+    if (!code) break;
+    if (code === 'NONE') { if (i !== 0) return fail(res, 400, '발령 희망하지 않음은 1지망에서만 고를 수 있음.'); wishes.push({ dept: 'NONE', centers: [] }); continue; }
+    const d = byCode[code];
+    if (!d || d.kind !== '부서' || usedDept[code]) return fail(res, 400, (i + 1) + '지망 부서를 다시 골라 주세요.');
+    usedDept[code] = 1;
+    const cs = (Array.isArray(w.centers) ? w.centers : []).map(String).filter(Boolean).slice(0, 3);
+    if (new Set(cs).size !== cs.length || cs.some(c => !byCode[c] || byCode[c].kind !== '센터' || byCode[c].dept !== d.dept)) return fail(res, 400, (i + 1) + '지망 센터를 다시 골라 주세요.');
+    wishes.push({ dept: code, centers: cs });
+  }
+  const wish = wishes[0].dept === 'NONE' ? 'N' : 'Y';
+  let reasonCode = null;
   if (wish === 'Y') {
     reasonCode = s(b.reasonCode, 30);
     if (st.reasons.indexOf(reasonCode) < 0) return fail(res, 400, '사유 구분을 골라 주세요.');
     if (s(b.reasonText, 300).length < 5) return fail(res, 400, '사유를 5자 이상 적어 주세요.');
-    const codes = (await sql`SELECT code FROM orgs WHERE kind = '센터'`).map(r => r.code);
-    ranks = [0, 1, 2].map(i => (b.ranks && b.ranks[i]) ? String(b.ranks[i]) : null);
-    if (!ranks[0]) return fail(res, 400, '1순위 희망 센터를 골라 주세요.');
-    const picked = ranks.filter(Boolean);
-    if (picked.some(c => codes.indexOf(c) < 0) || new Set(picked).size !== picked.length) return fail(res, 400, '희망 센터를 다시 골라 주세요.');
   }
+  const ranks = [0, 1, 2].map(i => wishes[i] ? wishes[i].dept : null);
 
   const enc = seal({
-    home: { road, jibun: s(home.jibun, 200), zip: s(home.zip, 10), detail: s(home.detail, 100) },
-    prev: prevChanged ? { road: s(prev.road, 200), jibun: s(prev.jibun, 200), detail: s(prev.detail, 100) } : null,
+    home: { road, jibun: s(home.jibun, 200), zip: s(home.zip, 10) },
+    prev: prevChanged ? { road: s(prev.road, 200), jibun: s(prev.jibun, 200) } : null,
     move: movePlanned ? { area: s(move.area, 100) } : null,
     reasonText: wish === 'Y' ? s(b.reasonText, 300) : ''
   });
   const done = await sql`UPDATE responses SET status = 'submitted', enc_payload = ${enc},
       prev_changed = ${prevChanged}, move_planned = ${movePlanned}, move_month = ${movePlanned ? String(move.month) : null},
       move_as_base = ${movePlanned && !!move.base}, wish = ${wish}, reason_code = ${reasonCode},
-      wish1 = ${ranks[0]}, wish2 = ${ranks[1]}, wish3 = ${ranks[2]}, submitted_at = NOW()
+      wish1 = ${ranks[0]}, wish2 = ${ranks[1]}, wish3 = ${ranks[2]}, wishes = ${JSON.stringify(wishes)}::jsonb, submitted_at = NOW()
     WHERE roster_id = ${t.sub} AND status <> 'submitted' RETURNING submitted_at`;
   if (!done[0]) return fail(res, 409, '이미 제출했음.');
   await audit('submit', t.sub);

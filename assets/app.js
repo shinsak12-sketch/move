@@ -6,7 +6,8 @@
 
   var POSTCODE_SRC = 'https://t1.daumcdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js';
   var SKEY = 'addr-survey.v1';
-  var TITLES = ['본인 확인', '개인정보 동의', '비밀번호', '현 거주지', '이전 주소', '이사 예정', '거리 산출', '발령 희망', '희망 센터', '확인 · 제출', '완료'];
+  var TITLES = ['본인 확인', '개인정보 동의', '비밀번호', '현 거주지', '이전 주소', '이사 예정', '거리 산출', '희망 지망', '희망 사유', '확인 · 제출', '완료'];
+  var NONE = 'NONE';   // 1지망 '발령 희망하지 않음'
   var ICON_CHECK = '<svg width="13" height="13" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 6.5l2.5 2.5L10 3.5"/></svg>';
   var ICON_SEARCH = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>';
   var ICON_BACK = '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg>';
@@ -22,10 +23,10 @@
     return {
       step: 0, maxStep: 0, token: '', name: '', birth: '', needPw: false, loginPw: '',
       agree: { collect: false, overseas: false, entrust: false }, pw1: '', pw2: '',
-      home: null, homeDetail: '', prevChanged: false, prev: null, prevDetail: '',
+      home: null, prevChanged: false, prev: null,
       movePlanned: false, moveMonth: '', moveArea: '', moveBase: false,
       calc: { state: 'idle', list: [], at: null, road: '' }, fdR: 'all', fcR: 'all', fcD: 'all',
-      wish: '', reasonCode: '', reasonText: '', ranks: ['', '', ''],
+      wishes: [{ dept: '', centers: ['', '', ''] }, { dept: '', centers: ['', '', ''] }, { dept: '', centers: ['', '', ''] }], reasonCode: '', reasonText: '', slot2: 0,
       sheet: null, slot: 0, q: '', confirm: false, busy: false, submittedAt: null, contact: '손사지원파트 신이삭 수석', calcCount: 0, calcLimit: 2
     };
   }
@@ -85,18 +86,19 @@
       case 0: return S.name.trim().length >= 2 && /^\d{6}$/.test(S.birth) && (!S.needPw || S.loginPw.length >= 6);
       case 1: return S.agree.collect && S.agree.overseas && S.agree.entrust;
       case 2: return S.pw1.length >= 6 && S.pw1 === S.pw2;
-      case 3: return !!S.home && S.homeDetail.trim().length > 0;
-      case 4: return !S.prevChanged || (!!S.prev && S.prevDetail.trim().length > 0);
+      case 3: return !!S.home;
+      case 4: return !S.prevChanged || !!S.prev;
       case 5: return !S.movePlanned || (!!S.moveMonth && !!S.moveArea);
       case 6: return S.calc.state === 'done' && S.calc.road === (S.home && S.home.road);
-      case 7: return S.wish === 'N' || (S.wish === 'Y' && !!S.reasonCode && S.reasonText.trim().length >= 5);
-      case 8: return !!S.ranks[0];
+      case 7: return !!S.wishes[0].dept;
+      case 8: return !!S.reasonCode && S.reasonText.trim().length >= 5;
       default: return true;
     }
   }
   function go(n) { S.step = n; if (n > S.maxStep && n <= 9) S.maxStep = n; save(); render(); var b = document.querySelector('.bd'); if (b) b.scrollTop = 0; }
-  function prevOf(s) { if (s === 9 && S.wish === 'N') return 7; return s - 1; }
-  function nextOf(s) { if (s === 7 && S.wish === 'N') return 9; return s + 1; }
+  function noWish() { return S.wishes[0].dept === NONE; }
+  function prevOf(s) { if (s === 9 && noWish()) return 7; return s - 1; }
+  function nextOf(s) { if (s === 7 && noWish()) return 9; return s + 1; }
 
   function primary() {
     var s = S.step;
@@ -160,11 +162,11 @@
   function doSubmit() {
     S.busy = true; S.confirm = false; render();
     api('submit', { body: {
-      home: { road: S.home.road, jibun: S.home.jibun, zip: S.home.zip, detail: S.homeDetail.trim() },
-      prevChanged: S.prevChanged, prev: S.prevChanged ? { road: S.prev.road, jibun: S.prev.jibun, detail: S.prevDetail.trim() } : null,
+      home: { road: S.home.road, jibun: S.home.jibun, zip: S.home.zip },
+      prevChanged: S.prevChanged, prev: S.prevChanged ? { road: S.prev.road, jibun: S.prev.jibun } : null,
       movePlanned: S.movePlanned, move: S.movePlanned ? { month: S.moveMonth, area: S.moveArea, base: S.moveBase } : null,
-      wish: S.wish, reasonCode: S.wish === 'Y' ? S.reasonCode : '', reasonText: S.wish === 'Y' ? S.reasonText.trim() : '',
-      ranks: S.wish === 'Y' ? S.ranks : []
+      wishes: S.wishes.filter(function (w) { return w.dept; }).map(function (w) { return { dept: w.dept, centers: w.centers.filter(Boolean) }; }),
+      reasonCode: noWish() ? '' : S.reasonCode, reasonText: noWish() ? '' : S.reasonText.trim()
     } }).then(function (r) {
       S.busy = false; S.submittedAt = r.submittedAt; S.contact = r.contact || S.contact; clearAll();
       var keep = { submittedAt: S.submittedAt, contact: S.contact }; S = Object.assign(fresh(), keep, { step: 10 }); render();
@@ -211,9 +213,9 @@
     if (s >= 3 && s <= 9) {
       h += '<div class="segs" role="group" aria-label="단계">';
       for (var i = 3; i <= 9; i++) {
-        var skip = i === 8 && S.wish === 'N';
+        var skip = i === 8 && noWish();
         var dis = i > S.maxStep || i === s || skip || S.busy;
-        h += '<button class="sg' + (i === s ? ' cur' : i < s || i <= S.maxStep ? ' done' : '') + '" type="button" data-go="' + i + '"' + (dis ? ' disabled' : '') + ' title="' + TITLES[i] + '" aria-label="' + (i - 2) + '. ' + TITLES[i] + '"></button>';
+        h += '<button class="sg' + (i === s ? ' cur' : i < s || i <= S.maxStep ? ' past' : '') + '" type="button" data-go="' + i + '"' + (dis ? ' disabled' : '') + ' title="' + TITLES[i] + '" aria-label="' + (i - 2) + '. ' + TITLES[i] + '"></button>';
       }
       h += '</div><div class="stitle">' + TITLES[s] + '</div>';
     }
@@ -250,7 +252,7 @@
     var h = '<h1 class="t">지금 사는 곳을<br>알려주세요</h1><p class="sub">거리 계산과 사택 대상 판단에 쓰임.</p>';
     if (!S.home) return h + search('도로명, 건물명, 지번으로 검색', 'pcHome');
     return h + '<div class="picked"><span class="r">' + esc(S.home.road) + '</span><span class="j">[지번] ' + esc(S.home.jibun) + (S.home.zip ? ' · 우편번호 ' + esc(S.home.zip) : '') + '</span><button class="chg" type="button" data-act="pcHome">주소 다시 찾기</button></div>' +
-      '<div class="fld" style="margin-top:16px"><label class="lbl" for="dt">상세주소</label><input id="dt" class="inp" data-f="homeDetail" type="text" placeholder="동 · 호수 (예: 101동 1203호)" value="' + esc(S.homeDetail) + '"></div>' +
+      '<div class="hint" style="margin-top:10px">개인정보 보호를 위해 <b>동 · 호수 등 상세주소는 받지 않음</b>. 도로명 주소까지만 저장됨.</div>' +
       (S.calcCount ? '<div class="note"><span>' + calcNote() + '</span></div>' : '');
   };
   V[4] = function () {
@@ -258,8 +260,7 @@
     if (!S.prevChanged) return h + '<div class="hint" style="margin-top:12px">달라진 게 없으면 그대로 다음으로 넘어가면 됨.</div>';
     h += '<div class="open"><span class="lbl" style="margin:0">이전(2025년) 주소</span>';
     if (!S.prev) h += search('이전 주소 검색', 'pcPrev');
-    else h += '<div class="picked"><span class="r">' + esc(S.prev.road) + '</span><span class="j">[지번] ' + esc(S.prev.jibun) + '</span><button class="chg" type="button" data-act="pcPrev">다시 찾기</button></div>' +
-      '<input class="inp" data-f="prevDetail" type="text" aria-label="이전 주소 상세" placeholder="상세주소 (동 · 호수)" value="' + esc(S.prevDetail) + '">';
+    else h += '<div class="picked"><span class="r">' + esc(S.prev.road) + '</span><span class="j">[지번] ' + esc(S.prev.jibun) + '</span><button class="chg" type="button" data-act="pcPrev">다시 찾기</button></div>';
     return h + '</div>';
   };
   V[5] = function () {
@@ -278,7 +279,7 @@
     var fresh6 = c.state === 'done' && S.home && c.road === S.home.road;
     if (c.state === 'run') return h + '<div class="calcbox"><div class="spin" aria-hidden="true"></div><b style="font-size:17px">센터까지 길을 찾고 있어요</b><span style="font-size:13.5px;color:#4B5563;line-height:1.6">' + ((cfg && cfg.orgs && cfg.orgs.length) || '') + '곳 · 주소가 같은 센터는 한 번만 계산함<br>10~20초 정도 걸림</span></div>';
     if (!fresh6) {
-      h += '<div class="card" style="display:flex;flex-direction:column;gap:6px"><span style="font-size:12.5px;color:#4B5563">출발지</span><b style="font-size:15.5px">' + esc(S.home ? S.home.road : '') + '</b><span style="font-size:13px;color:#4B5563">' + esc(S.homeDetail) + '</span></div>';
+      h += '<div class="card" style="display:flex;flex-direction:column;gap:6px"><span style="font-size:12.5px;color:#4B5563">출발지</span><b style="font-size:15.5px">' + esc(S.home ? S.home.road : '') + '</b></div>';
       if (S.movePlanned && S.moveBase) h += '<div class="note" style="margin-top:12px"><span>이사 예정지를 발령 기준지로 선택했음. 거리는 <b>현 거주지 기준</b>으로 계산하고, 이사 예정지(' + esc(S.moveArea) + ')는 발령 때 참고됨.</span></div>';
       h += '<div class="note" style="margin-top:12px' + (calcLeft() <= 0 ? ';background:#FEF0EE;color:#912018' : '') + '"><span>' + calcNote() + '</span></div>';
       return h;
@@ -309,37 +310,59 @@
         '<div class="km">' + (x.km == null ? '<span style="margin:0">산출 실패</span>' : '<b>' + x.km.toFixed(1) + '</b>km<span>약 ' + x.min + '분</span>') + '</div></div>';
     }
   };
+  function deptOrg(code) { var l = S.calc.list || []; for (var i = 0; i < l.length; i++) if (l[i].code === code && isDept(l[i])) return l[i]; return null; }
+  function kmTxt(o) { return o && o.km != null ? o.km.toFixed(1) + 'km' : ''; }
   V[7] = function () {
-    var h = '<h1 class="t">이번 발령에서<br>이동을 희망하나요?</h1><p class="sub">희망하면 사유를 알려주세요. 발령 검토에 참고함.</p>' +
-      '<div class="seg2"><button class="' + (S.wish === 'Y' ? 'on' : '') + '" type="button" data-act="wish" data-k="Y">희망해요</button><button class="' + (S.wish === 'N' ? 'on' : '') + '" type="button" data-act="wish" data-k="N">희망 안 해요</button></div>';
-    if (S.wish !== 'Y') return h;
-    return h + '<div class="open"><div><label class="lbl" for="rc">사유 구분</label><select id="rc" class="sel" data-f="reasonCode"><option value="">선택해 주세요</option>' +
-      ((cfg && cfg.reasons) || []).map(function (r) { return '<option' + (r === S.reasonCode ? ' selected' : '') + '>' + esc(r) + '</option>'; }).join('') + '</select></div>' +
-      '<div><label class="lbl" for="rt">자세한 사유</label><textarea id="rt" class="ta" data-f="reasonText" maxlength="300" placeholder="상황을 간단히 적어 주세요 (5자 이상)">' + esc(S.reasonText) + '</textarea><div class="hint" style="text-align:right"><span id="rlen">' + S.reasonText.length + '</span> / 300자</div></div></div>';
-  };
-  V[8] = function () {
-    var h = '<h1 class="t">희망 센터를<br>순서대로 골라 주세요</h1><p class="sub">1순위는 꼭 골라 주세요. 2·3순위는 없으면 비워도 됨.</p>';
-    S.ranks.forEach(function (code, i) {
-      var o = orgByCode(code);
-      h += '<button class="rk' + (o ? ' set' : '') + '" type="button" data-act="rank" data-k="' + i + '"><span class="no">' + (i + 1) + '</span><span>' +
-        (o ? '<b style="font-size:15px">' + esc(o.name) + '</b><br><span style="font-size:12.5px;color:#4B5563">' + esc(o.dept) + (o.km != null ? ' · ' + o.km.toFixed(1) + 'km' : '') + '</span>' : '<span class="em">' + (i === 0 ? '1순위 센터 고르기 (필수)' : (i + 1) + '순위 센터 고르기 (선택)') + '</span>') +
-        '</span><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#9AA3B2" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></button>' +
-        (o && i > 0 ? '<button class="clr" type="button" data-act="rankClear" data-k="' + i + '">' + (i + 1) + '순위 비우기</button>' : '');
+    var none = noWish();
+    var h = '<h1 class="t">희망 부서를<br>지망 순서대로 골라 주세요</h1><p class="sub">1지망에서 <b>발령 희망하지 않음</b>을 고를 수 있음. 그 경우 2 · 3지망은 <b>발령이 난다면</b> 희망하는 곳임. 부서마다 센터는 3곳까지 고를 수 있음(선택).</p>';
+    S.wishes.forEach(function (w, i) {
+      if (i > 0 && !S.wishes[i - 1].dept) return;       // 앞 지망을 골라야 다음 지망이 열림
+      var d = w.dept === NONE ? null : deptOrg(w.dept);
+      var tag = i === 0 ? '1지망' : (i + 1) + '지망' + (none ? ' · 발령 시' : '');
+      h += '<div class="wbox"><div class="whead"><span class="wtag' + (i === 0 ? ' first' : '') + '">' + tag + '</span>' + (i > 0 ? '<span class="wopt">선택</span>' : '<span class="wopt req">필수</span>') +
+        (w.dept && i > 0 ? '<button class="clr" type="button" data-act="wClear" data-k="' + i + '" style="margin-left:auto;padding:0">비우기</button>' : '') + '</div>';
+      h += '<button class="rk' + (w.dept ? ' set' : '') + '" type="button" data-act="wDept" data-k="' + i + '"><span class="no">' + (i + 1) + '</span><span>' +
+        (w.dept === NONE ? '<b style="font-size:15px">발령 희망하지 않음</b><br><span style="font-size:12.5px;color:#4B5563">현 부서 유지</span>'
+          : d ? '<b style="font-size:15px">' + esc(d.name) + '</b><br><span style="font-size:12.5px;color:#4B5563">' + esc([d.region, kmTxt(d)].filter(Boolean).join(' · ')) + '</span>'
+          : '<span class="em">' + (i === 0 ? '부서 고르기 · 희망하지 않음도 여기서' : '부서 고르기') + '</span>') +
+        '</span><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#9AA3B2" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></button>';
+      if (d) {
+        var hasC = centersOf(d).length > 0;
+        h += hasC ? '<div class="cgrid">' + w.centers.map(function (c, j) {
+          var o = orgByCode(c);
+          return '<button class="cbtn' + (o ? ' set' : '') + '" type="button" data-act="wCenter" data-k="' + i + '" data-j="' + j + '"><span class="cno">센터 ' + (j + 1) + '</span>' +
+            (o ? '<b>' + esc(o.name) + '</b><span>' + kmTxt(o) + '</span>' : '<span class="em" style="font-size:13px">+ 고르기</span>') + '</button>';
+        }).join('') + '</div>' : '<div class="hint" style="margin:-4px 0 4px">이 부서는 고를 센터가 없음</div>';
+      }
+      h += '</div>';
     });
     return h;
   };
+  V[8] = function () {
+    return '<h1 class="t">발령을 희망하는<br>사유를 알려주세요</h1><p class="sub">1지망에 부서를 골라 발령 희망으로 접수됨. 발령 검토에 참고함.</p>' +
+      '<div class="open" style="margin-top:0"><div><label class="lbl" for="rc">사유 구분</label><select id="rc" class="sel" data-f="reasonCode"><option value="">선택해 주세요</option>' +
+      ((cfg && cfg.reasons) || []).map(function (r) { return '<option' + (r === S.reasonCode ? ' selected' : '') + '>' + esc(r) + '</option>'; }).join('') + '</select></div>' +
+      '<div><label class="lbl" for="rt">자세한 사유</label><textarea id="rt" class="ta" data-f="reasonText" maxlength="300" placeholder="상황을 간단히 적어 주세요 (5자 이상)">' + esc(S.reasonText) + '</textarea><div class="hint" style="text-align:right"><span id="rlen">' + S.reasonText.length + '</span> / 300자</div>' +
+      '<div class="hint">건강 상태 · 병명 같은 구체적인 민감정보는 적지 말 것. 필요하면 담당자에게 따로 알려 주세요.</div></div></div>';
+  };
+  function wishLines() {
+    return S.wishes.filter(function (w) { return w.dept; }).map(function (w, i) {
+      if (w.dept === NONE) return '<b>1지망</b> 발령 희망하지 않음';
+      var d = deptOrg(w.dept), cs = w.centers.map(orgByCode).filter(Boolean).map(function (o) { return esc(o.name); });
+      return '<b>' + (i + 1) + '지망' + (noWish() && i > 0 ? '(발령 시)' : '') + '</b> ' + esc(d ? d.name : '') + (cs.length ? ' — ' + cs.join(', ') : '');
+    }).join('<br>');
+  }
   V[9] = function () {
     var CL9 = (S.calc.list || []).filter(function (x) { return !isDept(x); });
     var near = CL9.filter(function (x) { return x.km != null; })[0], K = houseKm();
     var out = CL9.filter(function (x) { return x.km != null && x.km >= K; }).length;
-    var rk = S.ranks.map(function (c, i) { var o = orgByCode(c); return o ? (i + 1) + '. ' + o.name : ''; }).filter(Boolean).join('  ');
     return '<h1 class="t">마지막으로 확인해 주세요</h1><p class="sub">제출하면 수정할 수 없음.</p>' +
-      '<div class="sec"><h3>거주지<button type="button" data-go="3">수정</button></h3><div class="kv"><span>현 거주지</span><span><b>' + esc(S.home.road) + ' ' + esc(S.homeDetail) + '</b></span>' +
-      '<span>2025년 대비</span><span>' + (S.prevChanged ? '달라짐 · 이전 ' + esc(S.prev.road) + ' ' + esc(S.prevDetail) : '변경 없음') + '</span>' +
+      '<div class="sec"><h3>거주지<button type="button" data-go="3">수정</button></h3><div class="kv"><span>현 거주지</span><span><b>' + esc(S.home.road) + '</b></span>' +
+      '<span>2025년 대비</span><span>' + (S.prevChanged ? '달라짐 · 이전 ' + esc(S.prev.road) : '변경 없음') + '</span>' +
       '<span>이사 예정</span><span>' + (S.movePlanned ? esc(monthLabel(S.moveMonth)) + ' · ' + esc(S.moveArea) + (S.moveBase ? ' · 발령 기준지' : '') : '없음') + '</span></div></div>' +
       '<div class="sec"><h3>거리 산출</h3><div class="kv"><span>가장 가까운 센터</span><span>' + esc(near ? near.name + ' ' + near.km.toFixed(1) + 'km' : '-') + '</span><span>사택 대상 센터</span><span>' + out + '곳 (' + K + 'km 이상)</span></div></div>' +
-      '<div class="sec"><h3>발령 희망<button type="button" data-go="7">수정</button></h3><div class="kv"><span>희망</span><span>' + (S.wish === 'Y' ? '희망함' : '희망 안 함') + '</span>' +
-      (S.wish === 'Y' ? '<span>사유</span><span>' + esc(S.reasonCode) + ' · ' + esc(S.reasonText) + '</span><span>희망 센터</span><span>' + esc(rk) + '</span>' : '') + '</div></div>';
+      '<div class="sec"><h3>희망 지망<button type="button" data-go="7">수정</button></h3><div style="font-size:14px;line-height:1.75">' + wishLines() + '</div></div>' +
+      (noWish() ? '' : '<div class="sec"><h3>희망 사유<button type="button" data-go="8">수정</button></h3><div class="kv"><span>구분</span><span>' + esc(S.reasonCode) + '</span><span>사유</span><span>' + esc(S.reasonText) + '</span></div></div>');
   };
   V[10] = function () {
     return '<div class="done"><svg width="88" height="88" viewBox="0 0 88 88" aria-hidden="true"><circle cx="44" cy="44" r="44" fill="#2B55D9"/><path d="M27 45l12 12 23-25" fill="none" stroke="#FFFFFF" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/></svg>' +
@@ -361,18 +384,30 @@
   function sheet() {
     if (!S.sheet) return '';
     var pc = S.sheet === 'home' || S.sheet === 'prev' || S.sheet === 'move';
-    var title = { home: '주소 검색', prev: '이전 주소 검색', move: '이사 예정지 (동까지)', rank: (S.slot + 1) + '순위 센터 선택' }[S.sheet];
+    var title = { home: '주소 검색', prev: '이전 주소 검색', move: '이사 예정지 (동까지)', wdept: (S.slot + 1) + '지망 부서', wcenter: (S.slot + 1) + '지망 · 센터 ' + (S.slot2 + 1) }[S.sheet];
     var h = '<div class="ov"><button class="shade" type="button" data-act="closeSheet" aria-label="닫기"></button><div class="sheet' + (pc ? '' : ' short') + '"><div class="grab"></div><div class="shd"><b style="font-size:17px">' + title + '</b><button class="back" type="button" data-act="closeSheet" aria-label="닫기" style="margin:0">' + ICON_X + '</button></div>';
     if (pc) return h + (S.sheet === 'move' ? '<div class="hint" style="margin:0 0 8px">어떤 주소를 골라도 시 · 군 · 구와 동까지만 저장됨</div>' : '') + '<div id="pc" class="pc"></div></div></div>';
-    h += '<input class="inp" id="q" data-f="q" type="search" aria-label="센터 검색" placeholder="센터 이름 검색" value="' + esc(S.q) + '" style="margin-bottom:6px"><div id="rlist" style="overflow-y:auto;flex:1">' + rankList() + '</div><div class="hint" style="text-align:center">가까운 순 · 현 거주지 기준 거리</div></div></div>';
+    h += '<div id="rlist" style="overflow-y:auto;flex:1">' + pickList() + '</div><div class="hint" style="text-align:center">가까운 순 · 현 거주지 기준 거리</div></div></div>';
     return h;
   }
-  function rankList() {
-    var q = S.q.trim(), K = houseKm();
-    return (S.calc.list || []).filter(function (o) { return !isDept(o) && (!q || o.name.indexOf(q) >= 0 || o.dept.indexOf(q) >= 0); }).map(function (o) {
-      var used = S.ranks.indexOf(o.code) >= 0 && S.ranks[S.slot] !== o.code;
-      return '<button class="res" type="button" data-act="pickRank" data-k="' + esc(o.code) + '"' + (used ? ' disabled' : '') + '><b>' + esc(o.name) + '</b><span>' + esc(o.dept) + (o.km != null ? ' · ' + o.km.toFixed(1) + 'km · 약 ' + o.min + '분' + (o.km >= K ? ' · 사택 대상' : '') : '') + (used ? ' · 이미 선택함' : '') + '</span></button>';
-    }).join('') || '<div class="hint" style="padding:20px 0;text-align:center">검색 결과 없음</div>';
+  function centersOf(d) { return (S.calc.list || []).filter(function (o) { return !isDept(o) && o.dept === d.dept; }); }
+  function pickList() {
+    var K = houseKm(), out = '';
+    var line = function (o, act, used) {
+      return '<button class="res" type="button" data-act="' + act + '" data-k="' + esc(o.code) + '"' + (used ? ' disabled' : '') + '><b>' + esc(o.name) + '</b><span>' +
+        esc([o.region, isDept(o) ? '' : o.dept].filter(Boolean).join(' · ')) + (o.km != null ? ' · ' + o.km.toFixed(1) + 'km · 약 ' + o.min + '분' + (!isDept(o) && o.km >= K ? ' · 사택 대상' : '') : '') + (used ? ' · 이미 고름' : '') + '</span></button>';
+    };
+    if (S.sheet === 'wdept') {
+      if (S.slot === 0) out += '<button class="res" type="button" data-act="pickDept" data-k="' + NONE + '"><b>발령 희망하지 않음</b><span>현 부서 유지 · 2 · 3지망은 발령이 난다면 희망하는 곳으로 접수됨</span></button>';
+      (S.calc.list || []).filter(isDept).forEach(function (o) {
+        var used = S.wishes.some(function (w, i) { return i !== S.slot && w.dept === o.code; });
+        out += line(o, 'pickDept', used);
+      });
+    } else {
+      var d = deptOrg(S.wishes[S.slot].dept), cs = S.wishes[S.slot].centers;
+      (d ? centersOf(d) : []).forEach(function (o) { out += line(o, 'pickCenter', cs.indexOf(o.code) >= 0 && cs[S.slot2] !== o.code); });
+    }
+    return out || '<div class="hint" style="padding:20px 0;text-align:center">고를 곳이 없음</div>';
   }
   function modal() {
     if (!S.confirm) return '';
@@ -407,10 +442,14 @@
       case 'togglePrev': S.prevChanged = !S.prevChanged; save(); return render();
       case 'toggleMove': S.movePlanned = !S.movePlanned; if (!S.movePlanned) S.moveBase = false; save(); return render();
       case 'toggleBase': S.moveBase = !S.moveBase; save(); return render();
-      case 'wish': S.wish = k; if (k === 'N' && S.maxStep === 8) S.maxStep = 7; save(); return render();
-      case 'rank': S.sheet = 'rank'; S.slot = Number(k); S.q = ''; render(); return;
-      case 'rankClear': S.ranks[Number(k)] = ''; save(); return render();
-      case 'pickRank': S.ranks[S.slot] = k; S.sheet = null; save(); return render();
+      case 'wDept': S.sheet = 'wdept'; S.slot = Number(k); return render();
+      case 'wCenter': S.sheet = 'wcenter'; S.slot = Number(k); S.slot2 = Number(t.getAttribute('data-j')); return render();
+      case 'wClear': for (var wi = Number(k); wi < 3; wi++) S.wishes[wi] = { dept: '', centers: ['', '', ''] }; save(); return render();
+      case 'pickDept':
+        if (S.wishes[S.slot].dept !== k) S.wishes[S.slot] = { dept: k, centers: ['', '', ''] };
+        if (k === NONE && S.maxStep === 8) S.maxStep = 7;
+        S.sheet = null; save(); return render();
+      case 'pickCenter': S.wishes[S.slot].centers[S.slot2] = k; S.sheet = null; save(); return render();
       case 'closeSheet': S.sheet = null; return render();
       case 'closeConfirm': S.confirm = false; return render();
       case 'submit': return doSubmit();
@@ -423,7 +462,6 @@
     if (f === 'reasonText') { v = v.slice(0, 300); var l = document.getElementById('rlen'); if (l) l.textContent = v.length; }
     S[f] = v;
     if (f === 'pw1' || f === 'pw2') { var r = document.getElementById('rules'); if (r) r.innerHTML = rules(); }
-    if (f === 'q') { var rl = document.getElementById('rlist'); if (rl) rl.innerHTML = rankList(); return; }
     if (['name', 'birth', 'loginPw', 'pw1', 'pw2'].indexOf(f) < 0) save();
     refreshCta();
   });

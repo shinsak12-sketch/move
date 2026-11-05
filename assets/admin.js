@@ -198,21 +198,23 @@
     var oname = function (c) { return c && byCode[c] ? byCode[c].name : ''; };
     var info = [['항목', '값'], ['생성일시', fmt(x.at)], ['거리 기준', '네이버 길찾기 ' + x.option + ' (현 거주지 기준)'], ['사택 기준', K + 'km 이상'], ['동의서 버전', x.consentVersion], ['형식버전', 1], ['인원', x.roster.length]];
     var org = [['조직코드', '구분', '권역', '부서', '이름', '원본 주소', '계산 위치']].concat(orgs.map(function (o) { return [o.code, o.kind, o.region || '', o.dept, o.name, o.addr_raw || '', o.addr]; }));
-    var ans = [['본부', '부서', '센터', '이름', '생년월일', '상태', '제출일시', '현 주소', '현 주소 상세', '지번', '우편번호', '2025 주소 변경', '이전 주소', '이전 주소 상세', '이사 예정', '이사 예정월', '이사 예정지(동)', '발령 기준지로', '발령 희망', '사유 구분', '사유', '희망 1순위', '희망 2순위', '희망 3순위', '거리 산출일시', '가장 가까운 센터', '최단 거리(km)', '사택 대상 수']];
+    var ans = [['본부', '부서', '센터', '이름', '생년월일', '상태', '제출일시', '현 주소', '지번', '우편번호', '2025 주소 변경', '이전 주소', '이사 예정', '이사 예정월', '이사 예정지(동)', '발령 기준지로', '발령 희망', '1지망 부서', '1지망 센터', '2지망 부서', '2지망 센터', '3지망 부서', '3지망 센터', '사유 구분', '사유', '거리 산출일시', '가장 가까운 센터', '최단 거리(km)', '사택 대상 센터 수']];
     var dHead = ['본부', '부서', '센터', '이름', '생년월일'].concat(orgs.map(function (o) { return (o.kind === '부서' ? '[부서] ' : '') + o.name + ' (' + o.code + ')'; }));
     var dK = [dHead], dM = [dHead], house = [['본부', '부서', '센터', '이름', '생년월일', '조직코드', '대상 센터명', '거리(km)', '소요(분)']], pend = [['본부', '부서', '센터', '이름', '생년월일', '상태']];
     x.roster.forEach(function (r, i) {
       var id = ids[i] || {}, s = resp[r.id], p = pays[i] || {}, dm = dist[r.id] || {};
       var vals = orgs.map(function (o) { return dm[o.site_id] || null; });
       var best = null, bi = -1, nHouse = 0;
-      vals.forEach(function (v, j) { if (v) { if (best === null || v.km < best) { best = v.km; bi = j; } if (v.km >= K) { nHouse++; house.push([r.hq || '', r.dept || '', r.center || '', id.name, id.birth, orgs[j].code, orgs[j].name, v.km, v.min]); } } });
+      vals.forEach(function (v, j) { if (v && orgs[j].kind !== '부서') { if (best === null || v.km < best) { best = v.km; bi = j; } if (v.km >= K) { nHouse++; house.push([r.hq || '', r.dept || '', r.center || '', id.name, id.birth, orgs[j].code, orgs[j].name, v.km, v.min]); } } });
       var sub = s && s.status === 'submitted';
       var h = p.home || {}, pv = p.prev || {};
-      ans.push([r.hq || '', r.dept || '', r.center || '', id.name, id.birth, stName(s), sub ? fmt(s.submitted_at) : '', h.road || '', h.detail || '', h.jibun || '', h.zip || '',
-        s && sub ? (s.prev_changed ? '달라짐' : '같음') : '', pv.road || '', pv.detail || '',
+      var ws = (s && s.wishes) || [], wcol = [];
+      for (var wi = 0; wi < 3; wi++) { var w = ws[wi]; wcol.push(!w ? '' : w.dept === 'NONE' ? '발령 희망하지 않음' : oname(w.dept)); wcol.push(!w || w.dept === 'NONE' ? '' : (w.centers || []).map(oname).join(', ')); }
+      ans.push([r.hq || '', r.dept || '', r.center || '', id.name, id.birth, stName(s), sub ? fmt(s.submitted_at) : '', h.road || '', h.jibun || '', h.zip || '',
+        s && sub ? (s.prev_changed ? '달라짐' : '같음') : '', pv.road || '',
         s && sub ? (s.move_planned ? '있음' : '없음') : '', s && s.move_month || '', p.move ? p.move.area : '', s && s.move_as_base ? '예' : '',
-        s && sub ? (s.wish === 'Y' ? '희망' : '희망 안 함') : '', s && s.reason_code || '', p.reasonText || '', oname(s && s.wish1), oname(s && s.wish2), oname(s && s.wish3),
-        s && s.calc_at ? fmt(s.calc_at) : '', bi >= 0 ? orgs[bi].name : '', best == null ? '' : best, bi >= 0 ? nHouse : '']);
+        s && sub ? (s.wish === 'Y' ? '희망' : '희망 안 함') : ''].concat(wcol, [s && s.reason_code || '', p.reasonText || '',
+        s && s.calc_at ? fmt(s.calc_at) : '', bi >= 0 ? orgs[bi].name : '', best == null ? '' : best, bi >= 0 ? nHouse : '']));
       dK.push([r.hq || '', r.dept || '', r.center || '', id.name, id.birth].concat(vals.map(function (v) { return v ? v.km : ''; })));
       dM.push([r.hq || '', r.dept || '', r.center || '', id.name, id.birth].concat(vals.map(function (v) { return v ? v.min : ''; })));
       if (!sub) pend.push([r.hq || '', r.dept || '', r.center || '', id.name, id.birth, stName(s)]);
