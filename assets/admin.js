@@ -113,7 +113,8 @@
           var acts = (r.locked ? '<button class="btn sm" data-act="acc" data-k="unlock" data-id="' + r.id + '">잠금 해제</button> ' : '') +
             (r.has_pw ? '<button class="btn sm" data-act="acc" data-k="reset" data-id="' + r.id + '">비번 초기화</button> ' : '') +
             (r.status === 'submitted' ? '<button class="btn sm" data-act="acc" data-k="reopen" data-id="' + r.id + '">재작성 허용</button>' : '') +
-            (r.status !== 'submitted' && r.calc_count >= 2 ? '<button class="btn sm" data-act="acc" data-k="calcReset" data-id="' + r.id + '">산출 횟수 초기화</button>' : '');
+            (r.status !== 'submitted' && r.calc_count >= 2 ? '<button class="btn sm" data-act="acc" data-k="calcReset" data-id="' + r.id + '">산출 횟수 초기화</button> ' : '') +
+            '<button class="btn sm" data-act="acc" data-k="delete" data-id="' + r.id + '" style="color:#DC2626">삭제</button>';
           return '<tr><td><b>' + esc(p.name) + '</b></td><td>' + esc(p.birth) + '</td><td>' + esc(r.hq) + '</td><td>' + esc(r.dept) + '</td><td>' + esc(r.center) + '</td><td><span class="pill ' + ST[x][1] + '">' + ST[x][0] + '</span></td><td class="muted">' + (r.calc_count ? r.calc_count + '/2' : '') + '</td><td class="muted">' + fmt(r.submitted_at || r.last_login) + '</td><td style="text-align:right">' + acts + '</td></tr>';
         }).join('') + '</tbody></table></div><div class="muted">' + list.length + '명' + (list.length > 500 ? ' (앞 500명만 표시 · 검색으로 좁히기)' : '') + '</div>';
     }
@@ -128,6 +129,9 @@
         '<label class="cb"><input type="checkbox" id="rm"> 이 파일에 없는 사람은 서버 명단에서 지움 (응답도 함께 지워짐)</label>' +
         '<div><button class="btn pri" type="button" data-act="uploadRoster"' + (p.bad.length || p.dup.length || A.busy ? ' disabled' : '') + '>' + (A.busy ? '올리는 중…' : '서버에 올리기') + '</button></div>';
     }
+    h += '</div><div class="card" style="display:flex;flex-direction:column;gap:12px;margin-top:16px"><b style="font-size:15px">사람 추가</b><div class="muted">지금 서버 명단은 그대로 두고 아래 사람만 더함 · 같은 이름 + 생년월일이 이미 있으면 본부 · 부서 · 센터만 고쳐짐<br>한 줄에 한 명: <b>본부, 부서, 센터, 이름, 생년월일</b> (쉼표 또는 탭 · 엑셀에서 복사해 붙여넣기도 됨 · 본부 · 부서 · 센터는 비워도 됨)</div>' +
+      '<textarea class="inp" id="addt" rows="6" style="height:auto;padding:10px;font-family:inherit;resize:vertical" placeholder="강북본부, 강북부, 강북1센터, 홍길동, 900101">' + esc(A.addText || '') + '</textarea>' +
+      '<div><button class="btn pri" type="button" data-act="addPeople"' + (A.busy ? ' disabled' : '') + '>' + (A.busy ? '추가 중…' : '명단에 추가') + '</button></div>';
     return h + '<div class="muted">서버에는 성명 · 생년월일이 해시(로그인 확인용)와 암호문(관리자 열람용)으로만 저장됨. <b>먼저 [키 관리]에서 키를 만들고, 공개키를 Vercel 환경변수 ENC_PUBLIC_KEY 에 넣고 다시 배포한 뒤</b> 올려야 함.</div></div>';
   }
   function vOrgs() {
@@ -241,9 +245,24 @@
       return navigator.clipboard.writeText(['본부\t부서\t센터\t이름\t생년월일\t상태'].concat(list).join('\n')).then(function () { toast('미제출 ' + list.length + '명 복사함 (엑셀에 붙여넣기 가능)'); });
     }
     if (a === 'acc') {
-      var label = { reset: '비밀번호를 초기화', unlock: '잠금을 해제', reopen: '제출을 풀어 재작성을 허용', calcReset: '거리 산출 횟수를 0으로 초기화' }[k];
+      var label = { reset: '비밀번호를 초기화', unlock: '잠금을 해제', reopen: '제출을 풀어 재작성을 허용', calcReset: '거리 산출 횟수를 0으로 초기화', delete: '이 사람을 명단에서 삭제(응답 · 거리도 함께 삭제)' }[k];
       if (!confirm(label + '할까요?')) return;
       return api('admin/account', { id: Number(t.getAttribute('data-id')), action: k }).then(function () { toast('처리했음'); loadStatus(); }).catch(fail);
+    }
+    if (a === 'addPeople') {
+      var txt = (document.getElementById('addt') || {}).value || ''; A.addText = txt;
+      var rows = [], bad = [];
+      txt.split(/\r?\n/).forEach(function (line, i) {
+        if (!line.trim()) return;
+        var c = line.split(/\t|,/).map(function (x) { return x.trim(); });
+        if (c.length < 5) c = ['', '', ''].slice(0, 5 - c.length).concat(c);
+        var b6 = birth6(c[4]);
+        if (!c[3] || !/^\d{6}$/.test(b6)) bad.push(i + 1); else rows.push({ hq: c[0], dept: c[1], center: c[2], name: c[3], birth: b6 });
+      });
+      if (bad.length) return toast('형식 오류 ' + bad.join(', ') + '번째 줄 — 이름 · 생년월일 확인');
+      if (!rows.length) return toast('추가할 사람을 입력해 주세요');
+      A.busy = true; render();
+      return api('admin/roster', { rows: rows, removeMissing: false }).then(function (r) { A.busy = false; A.addText = ''; toast(r.uploaded + '명 추가 · 서버 명단 ' + r.total + '명'); render(); }).catch(function (e) { A.busy = false; fail(e); });
     }
     if (a === 'uploadRoster') {
       A.busy = true; render();

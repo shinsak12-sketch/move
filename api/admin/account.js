@@ -1,4 +1,4 @@
-// 개별 처리: 비밀번호 초기화 · 잠금 해제 · 재작성 허용
+// 개별 처리: 비밀번호 초기화 · 잠금 해제 · 재작성 허용 · 산출 횟수 초기화 · 명단에서 삭제
 import { db, ensure, audit } from '../../lib/db.js';
 import { handler, body, fail, send, auth } from '../../lib/http.js';
 
@@ -12,6 +12,7 @@ export default handler(['POST'], async (req, res) => {
   else if (b.action === 'unlock') await sql`UPDATE roster SET fail_count = 0, locked = FALSE WHERE id = ${id}`;
   else if (b.action === 'reopen') await sql`UPDATE responses SET status = 'reopened' WHERE roster_id = ${id}`;
   else if (b.action === 'calcReset') await sql`UPDATE responses SET calc_count = 0 WHERE roster_id = ${id}`;
+  else if (b.action === 'delete') await sql`DELETE FROM roster WHERE id = ${id}`; // 응답 · 거리는 CASCADE로 함께 삭제
   else return fail(res, 400, '알 수 없는 처리');
   await audit('admin_' + b.action, id);
   send(res, 200, { ok: true });
