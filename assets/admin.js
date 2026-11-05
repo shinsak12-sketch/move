@@ -244,12 +244,14 @@
       vals.forEach(function (v, j) { if (v && orgs[j].kind !== '부서') { if (best === null || v.km < best) { best = v.km; bi = j; } if (v.km >= K) { nHouse++; house.push([r.hq || '', r.dept || '', r.center || '', id.name, id.birth, orgs[j].code, orgs[j].name, v.km, v.min]); } } });
       var sub = s && s.status === 'submitted';
       var h = p.home || {}, pv = p.prev || {};
-      var ws = (s && s.wishes) || [], wcol = [];
+      // 지망 · 사유 구분 등은 암호문(meta) 안에 있음. 예전 방식으로 저장된 응답은 평문 칸을 씀
+      var m = p.meta || (s ? { prevChanged: s.prev_changed, movePlanned: s.move_planned, moveMonth: s.move_month, moveBase: s.move_as_base, wish: s.wish, wishes: s.wishes, reasonCode: s.reason_code } : {});
+      var ws = m.wishes || [], wcol = [];
       for (var wi = 0; wi < 3; wi++) { var w = ws[wi]; wcol.push(!w ? '' : w.dept === 'NONE' ? '발령 희망하지 않음' : oname(w.dept)); wcol.push(!w || w.dept === 'NONE' ? '' : (w.centers || []).map(oname).join(', ')); }
       ans.push([r.hq || '', r.dept || '', r.center || '', id.name, id.birth, stName(s), sub ? fmt(s.submitted_at) : '', h.road || '', h.jibun || '', h.zip || '',
-        s && sub ? (s.prev_changed ? '달라짐' : '같음') : '', pv.road || '',
-        s && sub ? (s.move_planned ? '있음' : '없음') : '', s && s.move_month || '', p.move ? p.move.area : '', s && s.move_as_base ? '예' : '',
-        s && sub ? (s.wish === 'Y' ? '희망' : '희망 안 함') : ''].concat(wcol, [s && s.reason_code || '', p.reasonText || '',
+        sub ? (m.prevChanged ? '달라짐' : '같음') : '', pv.road || '',
+        sub ? (m.movePlanned ? '있음' : '없음') : '', m.moveMonth || '', p.move ? p.move.area : '', m.moveBase ? '예' : '',
+        sub ? (m.wish === 'Y' ? '희망' : '희망 안 함') : ''].concat(wcol, [m.reasonCode || '', p.reasonText || '',
         s && s.calc_at ? fmt(s.calc_at) : '', bi >= 0 ? orgs[bi].name : '', best == null ? '' : best, bi >= 0 ? nHouse : '']));
       dK.push([r.hq || '', r.dept || '', r.center || '', id.name, id.birth].concat(vals.map(function (v) { return v ? v.km : ''; })));
       dM.push([r.hq || '', r.dept || '', r.center || '', id.name, id.birth].concat(vals.map(function (v) { return v ? v.min : ''; })));

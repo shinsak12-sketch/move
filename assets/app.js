@@ -172,12 +172,15 @@
       return crypto.subtle.encrypt({ name: 'RSA-OAEP' }, x[2], x[1]).then(function (k) { return JSON.stringify({ v: 1, k: b64(k), iv: b64(iv), ct: b64(x[0]) }); });
     });
   }
+  function wishList() { return S.wishes.filter(function (w) { return w.dept; }).map(function (w) { return { dept: w.dept, centers: w.centers.filter(Boolean) }; }); }
   function doSubmit() {
     S.busy = true; S.confirm = false; render();
     var load = cfg && cfg.publicKey ? Promise.resolve(cfg) : api('public').then(function (c) { cfg = c; return c; });
     load.then(function (c) {
       if (!c.publicKey) throw new Error('암호화 키를 받지 못했음. 다시 로그인해 주세요.');
       return seal({
+        meta: { prevChanged: !!S.prevChanged, movePlanned: !!S.movePlanned, moveMonth: S.movePlanned ? S.moveMonth : '', moveBase: !!(S.movePlanned && S.moveBase),
+          wish: noWish() ? 'N' : 'Y', wishes: wishList(), reasonCode: noWish() ? '' : S.reasonCode },
         home: { road: S.home.road, jibun: S.home.jibun, zip: S.home.zip },
         prev: S.prevChanged ? { road: S.prev.road, jibun: S.prev.jibun } : null,
         move: S.movePlanned ? { area: S.moveArea } : null,
@@ -187,7 +190,7 @@
       return api('submit', { body: {
         road: S.home.road, enc: enc,
         prevChanged: S.prevChanged, movePlanned: S.movePlanned, moveMonth: S.movePlanned ? S.moveMonth : '', moveBase: S.movePlanned && S.moveBase,
-        wishes: S.wishes.filter(function (w) { return w.dept; }).map(function (w) { return { dept: w.dept, centers: w.centers.filter(Boolean) }; }),
+        wishes: wishList(),
         reasonCode: noWish() ? '' : S.reasonCode
       } });
     }).then(function (r) {

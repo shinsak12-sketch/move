@@ -56,13 +56,12 @@ export default handler(['POST'], async (req, res) => {
     reasonCode = s(b.reasonCode, 30);
     if (st.reasons.indexOf(reasonCode) < 0) return fail(res, 400, '사유 구분을 골라 주세요.');
   }
-  const ranks = [0, 1, 2].map(i => wishes[i] ? wishes[i].dept : null);
 
   const enc = b.enc;
+  // 지망 · 사유 구분 · 이사 예정월 등은 위에서 형식만 확인하고 평문으로는 저장하지 않음 (암호문 안에 들어 있음)
   const done = await sql`UPDATE responses SET status = 'submitted', enc_payload = ${enc},
-      prev_changed = ${prevChanged}, move_planned = ${movePlanned}, move_month = ${movePlanned ? moveMonth : null},
-      move_as_base = ${movePlanned && !!b.moveBase}, wish = ${wish}, reason_code = ${reasonCode},
-      wish1 = ${ranks[0]}, wish2 = ${ranks[1]}, wish3 = ${ranks[2]}, wishes = ${JSON.stringify(wishes)}::jsonb, submitted_at = NOW()
+      prev_changed = NULL, move_planned = NULL, move_month = NULL, move_as_base = NULL, wish = NULL, reason_code = NULL,
+      wish1 = NULL, wish2 = NULL, wish3 = NULL, wishes = NULL, submitted_at = NOW()
     WHERE roster_id = ${t.sub} AND status <> 'submitted' RETURNING submitted_at`;
   if (!done[0]) return fail(res, 409, '이미 제출했음.');
   await audit('submit', t.sub);
